@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --bg-base: #0A0E1A;
+  --bg-card: #111827;
+  --bg-card2: #161D2E;
+  --bg-elevated: #1C2539;
+  --border: rgba(255,255,255,0.07);
+  --border-bright: rgba(255,255,255,0.12);
+  --text-primary: #F0F4FF;
+  --text-secondary: #8B95B0;
+  --text-muted: #4B5470;
+  --green: #00D4AA;
+  --green-dim: #00A882;
+  --green-bg: rgba(0,212,170,0.1);
+  --green-border: rgba(0,212,170,0.2);
+  --blue: #4B8BFF;
+  --amber: #F5A623;
+  --red: #FF5B5B;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2A3347; border-radius: 3px; }
+.wkit-button { background: var(--green) !important; color: #000 !important; border-radius: 10px !important; font-weight: 500 !important; }
+
+/* ── Mobile Responsiveness ─────────────────────────────── */
+@media (max-width: 768px) {
+  /* Dashboard */
+  .dashboard-hero { grid-template-columns: 1fr !important; }
+  .dashboard-main { grid-template-columns: 1fr !important; }
+  .dashboard-sidebar { display: none !important; }
+  .earn-card { display: none !important; }
+  .hero-title { font-size: 26px !important; }
+  .features-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Stats grids */
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .stats-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Portfolio */
+  .portfolio-grid { grid-template-columns: 1fr !important; }
+
+  /* Positions */
+  .positions-table-grid { grid-template-columns: 1fr 1fr 1fr !important; }
+
+  /* Padding */
+  .page-padding { padding: 16px 12px !important; }
+}
+
+/* Prevent horizontal scroll */
+html, body { overflow-x: hidden; }
