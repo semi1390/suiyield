@@ -103,7 +103,6 @@ export default function YieldTable({ lending, dex, staking, cex }: Props) {
                 color: tab === t.key ? "var(--text-primary)" : "var(--text-secondary)",
                 borderBottom: tab === t.key ? "2px solid var(--green)" : "2px solid transparent",
                 background: "transparent", border: "none",
-                borderBottom: tab === t.key ? "2px solid #00D4AA" : "2px solid transparent",
                 cursor: "pointer",
               }}>
               {t.label}
