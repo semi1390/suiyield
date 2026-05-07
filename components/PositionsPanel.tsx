@@ -1,5 +1,7 @@
+"use client"
 import type { RealPosition } from "@/lib/positions"
 import { Eye, Loader2 } from "lucide-react"
+import { ConnectButton } from "@mysten/dapp-kit"
 
 interface Props {
   positions: RealPosition[]
@@ -29,9 +31,7 @@ export default function PositionsPanel({ positions, connected, loading, source }
       {!connected ? (
         <div>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>Connect wallet to view your positions</p>
-          <button style={{ width: "100%", padding: "10px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-primary)", cursor: "pointer" }}>
-            Connect Wallet
-          </button>
+          <div style={{ width: "100%" }}><ConnectButton /></div>
         </div>
       ) : loading ? (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "20px 0", color: "var(--text-muted)", fontSize: 13 }}>
