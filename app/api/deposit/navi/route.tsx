@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { Transaction } from "@mysten/sui/transactions"
-import { SuiClient, getFullnodeUrl } from "@mysten/sui/client"
+import { SuiClient } from "@mysten/sui/client"
 
 // Navi contract addresses — from getConfig()
 const NAVI_CONFIG = {
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Pool not found for ${coinType}` }, { status: 400 })
     }
 
-    const suiClient = new SuiClient({ url: getFullnodeUrl("mainnet") })
+   const suiClient = new SuiClient({ url: "https://fullnode.mainnet.sui.io:443" })
     const tx = new Transaction()
     tx.setSender(address)
 
