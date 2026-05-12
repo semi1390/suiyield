@@ -2,16 +2,29 @@ import { NextResponse } from "next/server"
 import { getLiveSuiYields } from "@/lib/defillama"
 import type { Category } from "@/types"
 
-export const revalidate = 300 // 5 min cache
+export const revalidate = 300
 
 const _rateLimits = new Map<string, { count: number; ts: number }>()
 function isRateLimited(ip: string): boolean {
   const now = Date.now()
   const entry = _rateLimits.get(ip)
   if (!entry || now - entry.ts > 60000) { _rateLimits.set(ip, { count: 1, ts: now }); return false }
-  if (entry.count >= 30) return true  // yields is heavier, allow 30/min
+  if (entry.count >= 30) return true
   entry.count++
   return false
+}
+
+// Keep only the highest APY entry per protocol+asset combination
+function deduplicateYields<T extends { protocol: string; asset: string; apy: number }>(yields: T[]): T[] {
+  const seen = new Map<string, T>()
+  for (const y of yields) {
+    const key = `${y.protocol.toLowerCase()}:${y.asset.toUpperCase()}`
+    const existing = seen.get(key)
+    if (!existing || y.apy > existing.apy) {
+      seen.set(key, y)
+    }
+  }
+  return Array.from(seen.values())
 }
 
 export async function GET(req: Request) {
@@ -38,12 +51,12 @@ export async function GET(req: Request) {
     else if (asset === "lsts") yields = yields.filter(y => LSTS.some(l => y.asset.toUpperCase().includes(l.replace("SUI",""))))
     else if (asset === "btc") yields = yields.filter(y => BTC.some(b => y.asset.toUpperCase().includes(b)))
 
-    // Group by category for the frontend
+    // Group by category and deduplicate each group
     const grouped = {
-      lending: yields.filter(y => y.category === "lending"),
-      dex:     yields.filter(y => y.category === "dex"),
-      staking: yields.filter(y => y.category === "staking"),
-      cex:     yields.filter(y => y.category === "cex"),
+      lending: deduplicateYields(yields.filter(y => y.category === "lending")),
+      dex:     deduplicateYields(yields.filter(y => y.category === "dex")),
+      staking: deduplicateYields(yields.filter(y => y.category === "staking")),
+      cex:     deduplicateYields(yields.filter(y => y.category === "cex")),
     }
 
     // Stats

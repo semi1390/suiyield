@@ -4,12 +4,13 @@ import { useCurrentAccount } from "@mysten/dapp-kit"
 import Navbar from "@/components/Navbar"
 import YieldTable from "@/components/YieldTable"
 import PositionsPanel from "@/components/PositionsPanel"
-import { AlertsFeed, EarnMoreCard, AlertsPromo } from "@/components/AlertsFeed"
+import { AlertsFeed, AlertsPromo } from "@/components/AlertsFeed"
 import { SEED_ALERTS, SEED_LENDING, SEED_DEX, SEED_STAKING, SEED_CEX } from "@/lib/seed-data"
 import type { RealPosition } from "@/lib/positions"
 import PositionsFetcher from "@/components/PositionsFetcher"
-import { RefreshCw, Shield, Zap, TrendingUp, BarChart3 } from "lucide-react"
+import { RefreshCw, Shield, Zap, BarChart3 } from "lucide-react"
 import type { YieldEntry } from "@/types"
+import type { LiveRate } from "@/app/api/live-rates/route"
 
 const FEATURES = [
   { icon: RefreshCw, label: "Real-time data", desc: "Updated every 5 minutes from DeFiLlama on-chain data" },
@@ -18,15 +19,55 @@ const FEATURES = [
   { icon: BarChart3, label: "Best yield, always", desc: "We track every Sui protocol to find the best rates." },
 ]
 
+// Merge live rates into yield entries
+// Matches by protocol name + asset symbol
+function mergeLiveRates(yields: YieldEntry[], liveRates: LiveRate[]): YieldEntry[] {
+  if (!liveRates.length) return yields
+
+  // Build lookup: "navi:USDC" -> LiveRate, "scallop:USDC" -> LiveRate
+  const liveMap = new Map<string, LiveRate>()
+  for (const r of liveRates) {
+    liveMap.set(`${r.protocol}:${r.symbol.toUpperCase()}`, r)
+    liveMap.set(`${r.protocol}:${r.pool.toUpperCase()}`, r)
+  }
+
+  return yields.map(y => {
+    const protocolLower = y.protocol.toLowerCase()
+    const assetUpper = y.asset.toUpperCase()
+
+    // Try navi / scallop match
+    const key1 = protocolLower.includes("navi") ? `navi:${assetUpper}` : null
+    const key2 = protocolLower.includes("scallop") ? `scallop:${assetUpper}` : null
+    const key3 = protocolLower.includes("navi") ? `navi:${y.asset}` : null
+    const key4 = protocolLower.includes("scallop") ? `scallop:${y.asset}` : null
+
+    const live = (key1 && liveMap.get(key1)) ||
+                 (key2 && liveMap.get(key2)) ||
+                 (key3 && liveMap.get(key3)) ||
+                 (key4 && liveMap.get(key4)) ||
+                 null
+
+    if (!live) return y
+
+    const totalApy = live.apyBase + live.apyReward
+    return {
+      ...y,
+      apy: totalApy,
+      tvl: live.tvlUsd > 0 ? live.tvlUsd : y.tvl,
+      isLive: true,
+      apyBase: live.apyBase,
+      apyReward: live.apyReward,
+    }
+  })
+}
+
 export default function DashboardPage() {
   const account = useCurrentAccount()
   const [lending, setLending] = useState<YieldEntry[]>(SEED_LENDING)
   const [dex, setDex] = useState<YieldEntry[]>(SEED_DEX)
   const [staking, setStaking] = useState<YieldEntry[]>(SEED_STAKING)
   const [cex, setCex] = useState<YieldEntry[]>(SEED_CEX)
-  const [allYields, setAllYields] = useState<YieldEntry[]>([...SEED_LENDING, ...SEED_DEX, ...SEED_STAKING])
   const [positions, setPositions] = useState<RealPosition[]>([])
-  const [dailyEarnings, setDailyEarnings] = useState(0)
   const [lastUpdated, setLastUpdated] = useState(Date.now())
   const [loading, setLoading] = useState(false)
   const [secAgo, setSecAgo] = useState(0)
@@ -34,15 +75,29 @@ export default function DashboardPage() {
   const fetchYields = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/yields")
-      const data = await res.json()
-      if (data.grouped) {
-        setLending(data.grouped.lending?.length ? data.grouped.lending : SEED_LENDING)
-        setDex(data.grouped.dex?.length ? data.grouped.dex : SEED_DEX)
-        setStaking(data.grouped.staking?.length ? data.grouped.staking : SEED_STAKING)
-        setCex(data.grouped.cex?.length ? data.grouped.cex : SEED_CEX)
-        setAllYields(data.yields || [])
+      // Fetch DeFiLlama yields + live SDK rates in parallel
+      const [yieldsRes, liveRes] = await Promise.allSettled([
+        fetch("/api/yields").then(r => r.json()),
+        fetch("/api/live-rates").then(r => r.json()),
+      ])
+
+      const yieldsData = yieldsRes.status === "fulfilled" ? yieldsRes.value : null
+      const liveData = liveRes.status === "fulfilled" ? liveRes.value : null
+      const liveRates: LiveRate[] = liveData?.data ?? []
+
+      if (yieldsData?.grouped) {
+        const rawLending = yieldsData.grouped.lending?.length ? yieldsData.grouped.lending : SEED_LENDING
+        const rawDex = yieldsData.grouped.dex?.length ? yieldsData.grouped.dex : SEED_DEX
+        const rawStaking = yieldsData.grouped.staking?.length ? yieldsData.grouped.staking : SEED_STAKING
+        const rawCex = yieldsData.grouped.cex?.length ? yieldsData.grouped.cex : SEED_CEX
+
+        // Merge live rates into lending rows (lending is where Navi/Scallop appear)
+        setLending(mergeLiveRates(rawLending, liveRates))
+        setDex(rawDex)
+        setStaking(mergeLiveRates(rawStaking, liveRates))
+        setCex(rawCex)
       }
+
       setLastUpdated(Date.now())
     } catch (err) {
       console.error("Yield fetch failed, using seed data:", err)
@@ -53,20 +108,18 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchYields()
-    const interval = setInterval(fetchYields, 300000) // 5 min
+    const interval = setInterval(fetchYields, 300000)
     return () => clearInterval(interval)
   }, [fetchYields])
 
   const [positionsLoading, setPositionsLoading] = useState(false)
-  const [positionsSource, setPositionsSource] = useState<"live"|"empty"|"demo">("demo")
+  const [positionsSource, setPositionsSource] = useState<"live" | "empty" | "demo">("demo")
 
   const handlePositions = (newPositions: RealPosition[], loading: boolean) => {
     setPositionsLoading(loading)
     if (!loading) {
       setPositions(newPositions)
       setPositionsSource(newPositions.length > 0 ? "live" : "empty")
-      const daily = newPositions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
-      setDailyEarnings(daily)
     }
   }
 
@@ -86,7 +139,7 @@ export default function DashboardPage() {
 
       <div className="page-padding" style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px" }}>
 
-        {/* Hero + Earn More */}
+        {/* Hero */}
         <div className="dashboard-hero" style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 20, marginBottom: 20 }}>
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--green-bg)", border: "1px solid var(--green-border)", borderRadius: 20, padding: "4px 12px", marginBottom: 20 }}>
@@ -105,7 +158,6 @@ export default function DashboardPage() {
               <a href="#table" style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--green)", color: "#000", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
                 View opportunities →
               </a>
-
             </div>
           </div>
 
@@ -165,7 +217,7 @@ export default function DashboardPage() {
         {/* Main grid */}
         <div id="table" className="dashboard-main" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, minWidth: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <YieldTable lending={lending} dex={dex} staking={staking} cex={cex} />
+            <YieldTable lending={lending} dex={dex} staking={staking} cex={cex} lastUpdated={lastUpdated} />
             <div className="features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
               {FEATURES.map((f, i) => (
                 <div key={i} style={{ padding: "20px 18px", borderRight: i < 3 ? "1px solid var(--border)" : "none" }}>
