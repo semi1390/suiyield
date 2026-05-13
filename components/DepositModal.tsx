@@ -11,7 +11,7 @@ const SCALLOP_COIN_NAMES: Record<string, string> = {
   SUI: "sui", USDC: "usdc", USDT: "sbusdt", WETH: "weth",
   WBTC: "wbtc", CETUS: "cetus", DEEP: "deep", WAL: "wal",
   HASUI: "hasui", VSUI: "vsui", NAVX: "navx", NS: "ns",
-  USDY: "usdy", FDUSD: "fdusd", HAEDAL: "haedal", WAL: "wal",
+  USDY: "usdy", FDUSD: "fdusd", HAEDAL: "haedal",
   HAWAL: "hawal", WWAL: "wwal", SCA: "sca",
 }
 
