@@ -11,6 +11,7 @@ import PositionsFetcher from "@/components/PositionsFetcher"
 import { RefreshCw, Shield, Zap, BarChart3 } from "lucide-react"
 import type { YieldEntry } from "@/types"
 import type { LiveRate } from "@/app/api/live-rates/route"
+import AiAdvisor from "@/components/AiAdvisor"
 
 const FEATURES = [
   { icon: RefreshCw, label: "Real-time data", desc: "Updated every 5 minutes from DeFiLlama on-chain data" },
@@ -71,6 +72,7 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState(Date.now())
   const [loading, setLoading] = useState(false)
   const [secAgo, setSecAgo] = useState(0)
+  const [walletTokens, setWalletTokens] = useState<any[]>([])
 
   const fetchYields = useCallback(async () => {
     setLoading(true)
@@ -162,56 +164,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Earn More card */}
-          <div className="earn-card" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20 }}>
-              <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>You could earn more</span>
-              <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "var(--text-muted)", cursor: "help" }}>?</div>
-            </div>
-            {userPos ? (
-              <>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>You're earning</div>
-                    <div style={{ fontSize: 34, fontWeight: 700, color: "var(--text-secondary)" }}>{userPos.apy.toFixed(2)}%</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6 }}>
-                      <div style={{ width: 16, height: 16, borderRadius: "50%", background: userPos.color + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: userPos.color }}>{userPos.initials}</div>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{userPos.asset} on {userPos.protocol}</span>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 22, color: "var(--text-muted)" }}>›</div>
-                  <div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>Best available</div>
-                    <div style={{ fontSize: 34, fontWeight: 700, color: "var(--green)" }}>{bestLending?.apy.toFixed(2)}%</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6 }}>
-                      <div style={{ width: 16, height: 16, borderRadius: "50%", background: (bestLending?.color || "#000") + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: bestLending?.color }}>{bestLending?.initials?.charAt(0)}</div>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>on {bestLending?.protocol}</span>
-                    </div>
-                  </div>
-                </div>
-                <div style={{ background: "rgba(0,212,170,0.06)", border: "1px solid var(--green-border)", borderRadius: 12, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>That's up to</span>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: "var(--green)" }}>+{extraApy.toFixed(2)}% extra APY</span>
-                </div>
-                <a href={bestLending?.depositUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "12px", borderRadius: 10, background: "var(--green)", color: "#000", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-                  Move funds →
-                </a>
-              </>
-            ) : (
-              <>
-                <div style={{ padding: "20px 0", textAlign: "center" }}>
-                  <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 8 }}>Connect wallet to see your earnings</div>
-                  <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Best available right now:</div>
-                  <div style={{ fontSize: 34, fontWeight: 700, color: "var(--green)", margin: "8px 0" }}>{bestLending?.apy.toFixed(2)}%</div>
-                  <div style={{ fontSize: 13, color: "var(--text-muted)" }}>on {bestLending?.protocol} ({bestLending?.asset})</div>
-                </div>
-                <a href={bestLending?.depositUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "12px", borderRadius: 10, background: "var(--green)", color: "#000", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-                  Start earning →
-                </a>
-              </>
-            )}
-          </div>
+          {/* AI Advisor — replaces earn more card */}
+<AiAdvisor
+  positions={positions}
+  walletTokens={walletTokens}
+  connected={!!account}
+/>
         </div>
 
         {/* Main grid */}
