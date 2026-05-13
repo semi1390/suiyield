@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 
-const NAVI_META = { color: "#1A4FE0", initials: "N", depositUrl: "https://app.naviprotocol.io" }
+const NAVI_META = {
+  color: "#1A4FE0",
+  initials: "N",
+  depositUrl: "/app", // Points to our dashboard where user can deposit natively
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -17,30 +21,34 @@ export async function GET(req: Request) {
 
     for (const entry of raw as any[]) {
       const type = entry.type ?? ""
-      if (!type.includes("supply")) continue // skip borrow positions
+      if (!type.includes("supply")) continue
 
       const posData = entry[type] ?? null
       if (!posData) continue
 
       const pool = posData.pool ?? {}
-      const symbol = (posData.token?.symbol ?? pool.token?.symbol ?? pool.coinType?.split("::")?.pop() ?? "?").toUpperCase()
+      const symbol = (
+        posData.token?.symbol ??
+        pool.token?.symbol ??
+        pool.coinType?.split("::")?.pop() ??
+        "?"
+      ).toUpperCase()
 
-      // Use valueUSD directly from SDK — most accurate
       const valueUsd = parseFloat(posData.valueUSD ?? 0)
       const amount = parseFloat(posData.amount ?? 0)
 
       if (valueUsd < 0.01) continue
 
-      // APY from pool's supplyIncentiveApyInfo
       const supplyInfo = pool.supplyIncentiveApyInfo
+      // Use full boosted APY (base + incentives) — matches what user sees on Navi
       const apy = Number(supplyInfo?.apy ?? supplyInfo?.vaultApr ?? 0)
 
       positions.push({
         protocol: "Navi Protocol",
         asset: symbol,
-        supplyBalance: Math.round(amount * 100) / 100,       // 2 decimals
-        valueUsd: Math.round(valueUsd * 100) / 100,          // 2 decimals
-        apy: Math.round(apy * 100) / 100,                    // 2 decimals
+        supplyBalance: Math.round(amount * 100) / 100,
+        valueUsd: Math.round(valueUsd * 100) / 100,
+        apy: Math.round(apy * 100) / 100,
         ...NAVI_META,
       })
     }

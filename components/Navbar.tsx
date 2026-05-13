@@ -11,6 +11,7 @@ const links = [
   { href: "/app/positions", label: "My Positions" },
   { href: "/app/alerts", label: "Alerts" },
   { href: "/app/portfolio", label: "Portfolio" },
+  { href: "/app/swap", label: "Swap" },
 ]
 
 export default function Navbar({ lastUpdated }: { lastUpdated?: number }) {

@@ -5,31 +5,14 @@ import { Transaction } from "@mysten/sui/transactions"
 import type { YieldEntry } from "@/types"
 import { X, Loader2, CheckCircle, AlertCircle, ExternalLink } from "lucide-react"
 
-
-const COIN_TYPES: Record<string, string> = {
-  "SUI":   "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
-  "USDC":  "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
-  "USDT":  "0x375f70cf2ae4c00bf37117d0c85a2c71545e6ee05c4a5c7d282cd66a4504b068::usdt::USDT",
-  "WETH":  "0xaf8cd5edc19c4512f4259f0bee101a40d41ebed738ade5874359610ef8eeced5::coin::COIN",
-  "WBTC":  "0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN",
-  "NAVX":  "0xa99b8952d4f7d947ea77fe0ecdcc9e5fc0bcab2841d6e2a5aa00c3044e5544b5::navx::NAVX",
-  "CETUS": "0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS",
-  "DEEP":  "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP",
-  "WAL":   "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL",
-  "HASUI": "0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d::hasui::HASUI",
-  "VSUI":  "0x549e8b69270defbfafd4f94e17ec44cdbdd99820b33bda2278dea3b9a32d3f55::cert::CERT",
-}
-
-const COIN_DECIMALS: Record<string, number> = {
-  SUI: 9, USDC: 6, USDT: 6, WETH: 8, WBTC: 8,
-  NAVX: 9, CETUS: 9, DEEP: 6, WAL: 9, HASUI: 9, VSUI: 9,
-}
-
-// Scallop uses lowercase coin names
+// Scallop coin name map — Scallop uses different names than standard symbols
+// This is the only map we keep — Scallop has its own naming convention
 const SCALLOP_COIN_NAMES: Record<string, string> = {
   SUI: "sui", USDC: "usdc", USDT: "sbusdt", WETH: "weth",
   WBTC: "wbtc", CETUS: "cetus", DEEP: "deep", WAL: "wal",
-  HASUI: "hasui", VSUI: "vsui",
+  HASUI: "hasui", VSUI: "vsui", NAVX: "navx", NS: "ns",
+  USDY: "usdy", FDUSD: "fdusd", HAEDAL: "haedal", WAL: "wal",
+  HAWAL: "hawal", WWAL: "wwal", SCA: "sca",
 }
 
 interface Props {
@@ -38,6 +21,11 @@ interface Props {
 }
 
 type Status = "idle" | "building" | "signing" | "success" | "error"
+
+interface CoinInfo {
+  coinType: string
+  decimals: number
+}
 
 export default function DepositModal({ pool, onClose }: Props) {
   const account = useCurrentAccount()
@@ -49,21 +37,76 @@ export default function DepositModal({ pool, onClose }: Props) {
   const [status, setStatus] = useState<Status>("idle")
   const [txHash, setTxHash] = useState("")
   const [errorMsg, setErrorMsg] = useState("")
+  const [coinInfo, setCoinInfo] = useState<CoinInfo | null>(null)
+  const [coinLoading, setCoinLoading] = useState(true)
 
   const asset = pool.asset.toUpperCase()
-  const coinType = COIN_TYPES[asset]
-  const decimals = COIN_DECIMALS[asset] ?? 9
   const isNavi = pool.protocol.toLowerCase().includes("navi")
   const isScallop = pool.protocol.toLowerCase().includes("scallop")
-  const isSupported = (isNavi || isScallop) && !!coinType
 
-  // Fetch wallet balance
+  // Fetch coin type + decimals dynamically from Navi pool data
+  // This means ANY token Navi lists automatically works — no hardcoding
+  useEffect(() => {
+    async function fetchCoinInfo() {
+      setCoinLoading(true)
+      try {
+        // Use our live-rates API which already fetches pool data
+        // For Navi — get coinType from pool's suiCoinType
+        // For Scallop — get coinType from pool's coinType field
+        const res = await fetch("/api/live-rates")
+        const data = await res.json()
+        const rates = data.data ?? []
+
+        // Find the matching pool
+        const matchingRate = rates.find((r: any) => {
+          const sym = r.symbol?.toUpperCase()
+          const proto = r.protocol?.toLowerCase()
+          if (isNavi && proto === "navi" && sym === asset) return true
+          if (isScallop && proto === "scallop" && sym === asset) return true
+          return false
+        })
+
+        if (matchingRate?.coinType) {
+          setCoinInfo({ coinType: matchingRate.coinType, decimals: matchingRate.decimals ?? 9 })
+          setCoinLoading(false)
+          return
+        }
+
+        // Fallback: fetch from Navi pool directly
+        if (isNavi) {
+          const poolRes = await fetch(`/api/coin-info?symbol=${asset}`)
+          if (poolRes.ok) {
+            const poolData = await poolRes.json()
+            if (poolData.coinType) {
+              setCoinInfo({ coinType: poolData.coinType, decimals: poolData.decimals ?? 9 })
+              setCoinLoading(false)
+              return
+            }
+          }
+        }
+
+        setCoinInfo(null)
+      } catch (e) {
+        console.error("[DepositModal] coin info fetch failed:", e)
+        setCoinInfo(null)
+      } finally {
+        setCoinLoading(false)
+      }
+    }
+    fetchCoinInfo()
+  }, [asset, isNavi, isScallop])
+
+  const coinType = coinInfo?.coinType ?? null
+  const decimals = coinInfo?.decimals ?? 9
+  const isSupported = (isNavi || isScallop) && !!coinType && !coinLoading
+
+  // Fetch wallet balance once we have coinType
   useEffect(() => {
     if (!account?.address || !coinType) return
     client.getBalance({ owner: account.address, coinType })
       .then(bal => setWalletBalance(Number(BigInt(bal.totalBalance)) / Math.pow(10, decimals)))
       .catch(() => setWalletBalance(0))
-  }, [account?.address, coinType])
+  }, [account?.address, coinType, decimals])
 
   const amountNum = parseFloat(amount) || 0
   const amountValid = amountNum > 0 && amountNum <= walletBalance
@@ -73,13 +116,9 @@ export default function DepositModal({ pool, onClose }: Props) {
     if (!account?.address || !amountValid || !coinType) return
     setStatus("building")
     setErrorMsg("")
-
     try {
-      if (isNavi) {
-        await handleNaviDeposit()
-      } else if (isScallop) {
-        await handleScallopDeposit()
-      }
+      if (isNavi) await handleNaviDeposit()
+      else if (isScallop) await handleScallopDeposit()
     } catch (err: any) {
       console.error("[Deposit] Error:", err)
       setErrorMsg(err?.message?.slice(0, 200) ?? "Transaction failed")
@@ -87,56 +126,38 @@ export default function DepositModal({ pool, onClose }: Props) {
     }
   }
 
-async function handleNaviDeposit() {
-  // Build TX server-side (Navi SDK has browser compatibility issues)
-  const res = await fetch("/api/deposit/navi", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      address: account!.address,
-      coinType,
-      amountInBaseUnits: amountInBaseUnits.toString(),
-    }),
-  })
+  async function handleNaviDeposit() {
+    const res = await fetch("/api/deposit/navi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        address: account!.address,
+        coinType,
+        amountInBaseUnits: amountInBaseUnits.toString(),
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok || data.error) throw new Error(data.error ?? "Failed to build transaction")
+    const txBytes = Uint8Array.from(Buffer.from(data.txBase64, "base64"))
+    setStatus("signing")
+    const result = await signAndExecute({ transaction: Transaction.from(txBytes) as any })
+    setTxHash(result.digest)
+    setStatus("success")
+  }
 
-  const data = await res.json()
-  if (!res.ok || data.error) throw new Error(data.error ?? "Failed to build transaction")
-
-  console.log("[Navi] TX built server-side, sending to wallet for signing")
-
-  // Deserialize and sign client-side with connected wallet
-  const txBytes = Uint8Array.from(Buffer.from(data.txBase64, "base64"))
-
-  setStatus("signing")
-  const result = await signAndExecute({
-    transaction: Transaction.from(txBytes) as any,
-  })
-
-  setTxHash(result.digest)
-  setStatus("success")
-}
   async function handleScallopDeposit() {
-  const { Scallop } = await import("@scallop-io/sui-scallop-sdk")
-  const coinName = SCALLOP_COIN_NAMES[asset]
-  if (!coinName) throw new Error(`${asset} not supported on Scallop yet`)
-
-  const scallop = new Scallop({
-    networkType: "mainnet",
-    walletAddress: account!.address,
-  })
-
-  const scallopClient = await scallop.createScallopClient()
-
-  // Get the transaction block without signing — we sign with the connected wallet
-  const txBlock = await scallopClient.deposit(coinName, Number(amountInBaseUnits), true) // true = return tx only
-
-  if (!txBlock) throw new Error("Failed to build Scallop transaction")
-
-  setStatus("signing")
-  const result = await signAndExecute({ transaction: txBlock as any })
-  setTxHash(result.digest)
-  setStatus("success")
-}
+    const { Scallop } = await import("@scallop-io/sui-scallop-sdk")
+    const coinName = SCALLOP_COIN_NAMES[asset]
+    if (!coinName) throw new Error(`${asset} not yet supported on Scallop`)
+    const scallop = new Scallop({ networkType: "mainnet", walletAddress: account!.address })
+    const scallopClient = await scallop.createScallopClient()
+    const txBlock = await scallopClient.deposit(coinName, Number(amountInBaseUnits), true)
+    if (!txBlock) throw new Error("Failed to build Scallop transaction")
+    setStatus("signing")
+    const result = await signAndExecute({ transaction: txBlock as any })
+    setTxHash(result.digest)
+    setStatus("success")
+  }
 
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 
@@ -149,12 +170,10 @@ async function handleNaviDeposit() {
         style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: 28, width: 440, maxWidth: "100%", position: "relative" }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Close button */}
         <button onClick={onClose} style={{ position: "absolute", top: 16, right: 16, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <X size={14} color="var(--text-muted)" />
         </button>
 
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
           <div style={{ width: 40, height: 40, borderRadius: "50%", background: pool.color + "22", border: `1px solid ${pool.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: pool.color }}>
             {pool.initials}
@@ -167,10 +186,17 @@ async function handleNaviDeposit() {
           </div>
         </div>
 
-        {!isSupported ? (
+        {/* Loading coin info */}
+        {coinLoading ? (
+          <div style={{ textAlign: "center", padding: "30px 0" }}>
+            <Loader2 size={24} style={{ color: "var(--green)", animation: "spin 1s linear infinite", margin: "0 auto 12px", display: "block" }} />
+            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading pool info...</div>
+          </div>
+
+        ) : !isSupported ? (
           <div style={{ textAlign: "center", padding: "20px 0" }}>
             <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 20 }}>
-              Native deposits for {pool.protocol} coming soon.
+              Native deposits for {pool.protocol} · {asset} coming soon.
             </div>
             <a href={pool.depositUrl} target="_blank" rel="noopener noreferrer"
               style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--green)", color: "#000", borderRadius: 10, padding: "10px 20px", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
@@ -199,7 +225,6 @@ async function handleNaviDeposit() {
 
         ) : (
           <>
-            {/* Pool stats */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
               {[
                 { label: "APY", value: `${pool.apy.toFixed(2)}%`, color: "var(--green)" },
@@ -213,7 +238,6 @@ async function handleNaviDeposit() {
               ))}
             </div>
 
-            {/* Amount input */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Amount</span>
@@ -233,7 +257,7 @@ async function handleNaviDeposit() {
                   <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>{asset}</span>
                 </div>
                 <button
-                  onClick={() => setAmount(walletBalance.toFixed(decimals > 6 ? 6 : decimals))}
+                  onClick={() => setAmount(walletBalance.toFixed(Math.min(decimals, 6)))}
                   style={{ padding: "0 14px", background: "var(--green-bg)", border: "1px solid var(--green-border)", borderRadius: 10, fontSize: 13, fontWeight: 600, color: "var(--green)", cursor: "pointer" }}>
                   Max
                 </button>
@@ -248,7 +272,6 @@ async function handleNaviDeposit() {
               )}
             </div>
 
-            {/* Earnings preview */}
             {amountValid && (
               <div style={{ background: "var(--bg-elevated)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -268,7 +291,6 @@ async function handleNaviDeposit() {
               </div>
             )}
 
-            {/* Error */}
             {status === "error" && (
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: 12, marginBottom: 16 }}>
                 <AlertCircle size={15} style={{ color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
@@ -276,7 +298,6 @@ async function handleNaviDeposit() {
               </div>
             )}
 
-            {/* Deposit button */}
             <button
               onClick={handleDeposit}
               disabled={!amountValid || status === "building" || status === "signing"}

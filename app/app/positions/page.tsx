@@ -18,7 +18,23 @@ const PROTOCOL_INITIALS: Record<string, string> = {
   "Suilend": "Sl",
 }
 
-// Group positions by protocol
+interface LiveRate {
+  protocol: string
+  symbol: string
+  apyBase: number
+  apyReward: number
+  source: string
+}
+
+interface Opportunity {
+  asset: string
+  fromProtocol: string
+  toProtocol: string
+  fromApy: number
+  toApy: number
+  extra: number
+}
+
 function groupByProtocol(positions: RealPosition[]): Record<string, RealPosition[]> {
   const groups: Record<string, RealPosition[]> = {}
   for (const p of positions) {
@@ -45,7 +61,6 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
 
   return (
     <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
-      {/* Protocol header */}
       <div
         onClick={() => setExpanded(e => !e)}
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", cursor: "pointer", borderBottom: expanded ? "1px solid var(--border)" : "none" }}
@@ -81,16 +96,13 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
         </div>
       </div>
 
-      {/* Position rows */}
       {expanded && (
         <>
-          {/* Column headers */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", padding: "8px 20px", borderBottom: "1px solid var(--border)" }}>
             {["Asset", "Balance", "Net Value", "APY", "Earnings (24h)"].map((h, i) => (
               <div key={i} style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
             ))}
           </div>
-
           {positions.map((p, i) => {
             const daily = (p.valueUsd * p.apy) / 100 / 365
             return (
@@ -99,7 +111,6 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
                 onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                {/* Asset */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--bg-elevated)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "var(--text-secondary)" }}>
                     {p.asset.slice(0, 2)}
@@ -109,21 +120,13 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Lent</div>
                   </div>
                 </div>
-
-                {/* Balance */}
                 <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
                   {p.supplyBalance.toLocaleString("en-US", { maximumFractionDigits: 4 })} {p.asset}
                 </div>
-
-                {/* Net Value */}
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>${fmt(p.valueUsd)}</div>
-
-                {/* APY */}
                 <div style={{ fontSize: 14, fontWeight: 700, color: p.apy > 0 ? "var(--green)" : "var(--text-muted)" }}>
                   {p.apy > 0 ? `${p.apy.toFixed(2)}%` : "—"}
                 </div>
-
-                {/* 24h earnings */}
                 <div style={{ fontSize: 13, color: daily > 0 ? "var(--green)" : "var(--text-muted)" }}>
                   {daily > 0 ? `+$${fmt(daily)}` : "—"}
                 </div>
@@ -146,6 +149,9 @@ export default function PositionsPage() {
   const [activeTab, setActiveTab] = useState<"all" | "lending" | "dex" | "staking">("all")
   const [moveFundsTarget, setMoveFundsTarget] = useState<RealPosition | null>(null)
 
+  // Live rates for dynamic opportunities — no hardcoding
+  const [liveRates, setLiveRates] = useState<LiveRate[]>([])
+
   useEffect(() => {
     if (!account?.address) { setPositions([]); setSource("demo") }
   }, [account?.address])
@@ -153,6 +159,14 @@ export default function PositionsPage() {
   useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 1000)
     return () => clearInterval(t)
+  }, [])
+
+  // Fetch live rates for opportunity suggestions
+  useEffect(() => {
+    fetch("/api/live-rates")
+      .then(r => r.json())
+      .then(data => { if (data.data?.length) setLiveRates(data.data) })
+      .catch(() => {})
   }, [])
 
   const handlePositions = (newPositions: RealPosition[], isLoading: boolean) => {
@@ -170,19 +184,47 @@ export default function PositionsPage() {
   const daily24h = positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
   const secAgo = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 1000) : 0
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const filteredPositions = activeTab === "all" ? positions :
-  activeTab === "lending" ? positions.filter(p => !p.asset.includes("/")) :
-  activeTab === "dex" ? positions.filter(p => p.asset.includes("/")) :
-  activeTab === "staking" ? positions.filter(p => ["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s))) :
-  positions
 
-const grouped = groupByProtocol(filteredPositions)
+  const filteredPositions = activeTab === "all" ? positions :
+    activeTab === "lending" ? positions.filter(p => !p.asset.includes("/")) :
+    activeTab === "dex" ? positions.filter(p => p.asset.includes("/")) :
+    activeTab === "staking" ? positions.filter(p => ["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s))) :
+    positions
 
-  // Top opportunities — best yield for assets user holds
-  const opportunities = [
-    { from: "Navi", to: "Scallop", asset: "USDC", fromApy: 4.21, toApy: 6.35, extra: 2.14 },
-    { from: "Navi", to: "Scallop", asset: "SUI", fromApy: 2.74, toApy: 3.25, extra: 0.51 },
-  ].filter(o => o.extra > 0)
+  const grouped = groupByProtocol(filteredPositions)
+
+  // Build opportunities dynamically from live rates + user positions
+  const opportunities: Opportunity[] = []
+  for (const pos of positions) {
+    const assetUpper = pos.asset.toUpperCase()
+    const currentProtocol = pos.protocol.toLowerCase().includes("navi") ? "navi" : "scallop"
+
+    // Find best rate for this asset from a DIFFERENT protocol
+    const bestOther = liveRates
+      .filter(r => {
+        const sym = r.symbol?.toUpperCase()
+        return sym === assetUpper && r.protocol !== currentProtocol
+      })
+      .sort((a, b) => (b.apyBase + b.apyReward) - (a.apyBase + a.apyReward))[0]
+
+    if (!bestOther) continue
+
+    const currentApy = pos.apy
+    const bestApy = bestOther.apyBase + bestOther.apyReward
+    const extra = bestApy - currentApy
+
+    // Only suggest if improvement is meaningful (> 0.5%)
+    if (extra < 0.5) continue
+
+    opportunities.push({
+      asset: pos.asset,
+      fromProtocol: pos.protocol,
+      toProtocol: bestOther.protocol === "navi" ? "Navi Protocol" : "Scallop",
+      fromApy: currentApy,
+      toApy: bestApy,
+      extra,
+    })
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
@@ -242,10 +284,10 @@ const grouped = groupByProtocol(filteredPositions)
             {/* Summary stats */}
             <div className="stats-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
               {[
-                { icon: DollarSign, label: "Total Net Value",  value: `$${fmt(total)}`,          sub: `${positions.length} positions` },
-                { icon: TrendingUp, label: "Total Earnings",   value: `$${fmt(totalEarnings)}`,   sub: "+6.20%" },
-                { icon: Activity,   label: "Real-time APY",    value: `${avgApy.toFixed(2)}%`,    sub: `${positions.length} positions` },
-                { icon: Activity,   label: "24h Earnings",     value: `+$${fmt(daily24h)}`,       sub: "at current rates" },
+                { icon: DollarSign, label: "Total Net Value", value: `$${fmt(total)}`,        sub: `${positions.length} positions` },
+                { icon: TrendingUp, label: "Total Earnings",  value: `$${fmt(totalEarnings)}`, sub: "at current APY" },
+                { icon: Activity,   label: "Real-time APY",   value: `${avgApy.toFixed(2)}%`,  sub: "weighted average" },
+                { icon: Activity,   label: "24h Earnings",    value: `+$${fmt(daily24h)}`,     sub: "at current rates" },
               ].map((s, i) => (
                 <div key={i} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 18 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -271,7 +313,7 @@ const grouped = groupByProtocol(filteredPositions)
             {/* Main grid */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "start" }}>
 
-             {/* Left — protocol groups */}
+              {/* Left — protocol groups */}
               <div>
                 {Object.entries(grouped).length === 0 ? (
                   <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "40px 20px", textAlign: "center" }}>
@@ -290,26 +332,30 @@ const grouped = groupByProtocol(filteredPositions)
                 )}
               </div>
 
-              {/* Right — opportunities sidebar */}
+              {/* Right sidebar */}
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+                {/* Opportunities — fully dynamic from live rates */}
                 <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Your Top Opportunities</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>Based on your holdings</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>Based on your holdings + live rates</div>
 
                   {opportunities.length === 0 ? (
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "20px 0" }}>You're already in the best positions!</div>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "20px 0" }}>
+                      {liveRates.length === 0 ? "Loading rates..." : "You're already in the best positions!"}
+                    </div>
                   ) : (
-                    opportunities.map((o, i) => (
+                    opportunities.slice(0, 3).map((o, i) => (
                       <div key={i} style={{ background: "var(--bg-elevated)", borderRadius: 12, padding: 14, marginBottom: 10 }}>
                         <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
-                          Move {o.asset} from {o.from} → {o.to}
+                          {o.asset} · {o.fromProtocol} → {o.toProtocol}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                           <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
                             {o.fromApy.toFixed(2)}% → <span style={{ color: "var(--green)", fontWeight: 600 }}>{o.toApy.toFixed(2)}%</span>
                           </div>
                           <span style={{ fontSize: 12, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>
-                            +{o.extra.toFixed(2)}% extra
+                            +{o.extra.toFixed(2)}%
                           </span>
                         </div>
                         <button
@@ -325,7 +371,7 @@ const grouped = groupByProtocol(filteredPositions)
                   )}
                 </div>
 
-                {/* Quick stats */}
+                {/* Earnings projection */}
                 <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 14 }}>Earnings projection</div>
                   {[
@@ -346,7 +392,7 @@ const grouped = groupByProtocol(filteredPositions)
         )}
       </div>
 
-      {/* Move Funds Modal — placeholder for Task 3 deposit modal */}
+      {/* Move Funds Modal */}
       {moveFundsTarget && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setMoveFundsTarget(null)}>
@@ -357,7 +403,7 @@ const grouped = groupByProtocol(filteredPositions)
               Moving {moveFundsTarget.asset} from {moveFundsTarget.protocol}
             </div>
             <div style={{ background: "var(--bg-elevated)", borderRadius: 12, padding: 16, marginBottom: 20, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>
-              🚧 Deposit modal coming in next update — on-chain PTB signing via wallet
+              🚧 Cross-protocol moves coming soon — withdraw from one protocol and deposit to another in one click.
             </div>
             <button onClick={() => setMoveFundsTarget(null)}
               style={{ width: "100%", padding: 12, borderRadius: 10, background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: 14, cursor: "pointer" }}>
