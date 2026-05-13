@@ -147,6 +147,8 @@ async function getScallopRates(): Promise<LiveRate[]> {
       const tvlUsd = scallopTvlUsd(coinName, p)
 
       if (tvlUsd < 1000 && apyBase === 0) continue
+      const apyReward = Number(p.rewardApy ?? p.reward_apy ?? 0) * 100
+
 
       results.push({
   protocol: 'scallop',
