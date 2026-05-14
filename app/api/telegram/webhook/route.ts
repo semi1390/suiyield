@@ -19,10 +19,14 @@ export async function POST(req: Request) {
     const firstName = message.chat.first_name ?? "there"
 
     if (text.startsWith("/start")) {
-      const parts = text.split(" ")
-      const walletAddress = parts[1] ?? null
+     const parts = text.split(" ")
+const rawParam = parts[1] ?? null
+// Convert sui... back to 0x...
+const walletAddress = rawParam?.startsWith("sui") 
+  ? "0x" + rawParam.slice(3) 
+  : rawParam
 
-      if (walletAddress && walletAddress.startsWith("0x")) {
+if (walletAddress && walletAddress.startsWith("0x")) {
         // Save wallet → chatId mapping
         await redis.set(`tg:${walletAddress}`, chatId.toString(), { ex: 60 * 60 * 24 * 365 })
         await redis.set(`tg:reverse:${chatId}`, walletAddress, { ex: 60 * 60 * 24 * 365 })

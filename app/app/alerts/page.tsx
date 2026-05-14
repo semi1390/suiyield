@@ -65,11 +65,13 @@ export default function AlertsPage() {
       .finally(() => setLoading(false))
   }, [account?.address, tgConnected])
 
-  function connectTelegram() {
-    if (!account?.address) return
-    // Deep link with wallet address as start parameter
-    const url = `https://t.me/${BOT_USERNAME}?start=${account.address}`
-    window.open(url, "_blank")
+ function connectTelegram() {
+  if (!account?.address) return
+  // Telegram start param only allows alphanumeric and _ -
+  // Remove 0x prefix and add it back in webhook
+  const walletParam = account.address.replace("0x", "sui")
+  const url = `https://t.me/${BOT_USERNAME}?start=${walletParam}`
+  window.open(url, "_blank")
 
     // Start polling for connection every 3 seconds
     if (pollRef.current) clearInterval(pollRef.current)
