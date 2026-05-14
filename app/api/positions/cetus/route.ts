@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { initCetusSDK } from "@cetusprotocol/sui-clmm-sdk"
+import initCetusSDK from "@cetusprotocol/sui-clmm-sdk"
 import { SuiClient } from "@mysten/sui/client"
 
 const client = new SuiClient({ url: "https://fullnode.mainnet.sui.io" })
