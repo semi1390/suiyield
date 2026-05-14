@@ -221,9 +221,9 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
                     {i === 0 && (
                       <span style={{ fontSize: 9, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>Best</span>
                     )}
-                    {(y as any).isLive && (
-                      <span style={{ fontSize: 9, background: "rgba(0,212,170,0.12)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>LIVE</span>
-                    )}
+{(y as any).isLive && (y as any).source !== 'defillama' && (
+  <span style={{ fontSize: 9, background: "rgba(0,212,170,0.12)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>LIVE</span>
+)}
                     {native && (
                       <span style={{ fontSize: 9, background: "rgba(75,139,255,0.12)", color: "#4B8BFF", border: "1px solid rgba(75,139,255,0.2)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>Native</span>
                     )}

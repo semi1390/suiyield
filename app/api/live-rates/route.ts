@@ -13,7 +13,7 @@ export interface LiveRate {
   tvlUsd: number
   coinType?: string
   decimals?: number
-  source: 'live'
+  source: 'live' | 'defillama'  // add defillama
 }
 
 // ── Navi ─────────────────────────────────────────────────────────────────────
@@ -170,6 +170,38 @@ async function getScallopRates(): Promise<LiveRate[]> {
     return []
   }
 }
+// ── Suilend ──────────────────────────────────────────────────────────────────
+async function getSuilendRates(): Promise<LiveRate[]> {
+  try {
+    const res = await fetch("https://yields.llama.fi/pools", {
+      next: { revalidate: 300 }
+    })
+    if (!res.ok) throw new Error(`DeFiLlama returned ${res.status}`)
+    const data = await res.json()
+
+    const pools = (data.data ?? []).filter((p: any) =>
+      p.project === "suilend" && p.chain === "Sui" && p.tvlUsd > 1000
+    )
+
+    const results: LiveRate[] = pools.map((p: any) => ({
+      protocol: 'suilend',
+      pool: p.symbol?.toUpperCase() ?? "",
+      symbol: p.symbol?.toUpperCase() ?? "",
+      apyBase: Number(p.apyBase ?? 0),
+      apyReward: Number(p.apyReward ?? 0),
+      tvlUsd: Number(p.tvlUsd ?? 0),
+      coinType: '',
+      decimals: 9,
+      source: 'defillama' as const,
+    })).filter((r: any) => r.symbol)
+
+    console.log(`[suilend] fetched ${results.length} pools via DeFiLlama`)
+    return results
+  } catch (err) {
+    console.error('[live-rates] Suilend error:', err)
+    return []
+  }
+}
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 export async function GET() {
@@ -177,25 +209,28 @@ export async function GET() {
     return NextResponse.json({ data: cache.data, cached: true, timestamp: cache.timestamp })
   }
 
-  const [naviRates, scallopRates] = await Promise.allSettled([
-    getNaviRates(),
-    getScallopRates(),
-  ])
+const [naviRates, scallopRates, suilendRates] = await Promise.allSettled([
+  getNaviRates(),
+  getScallopRates(),
+  getSuilendRates(),
+])
 
-  const data: LiveRate[] = [
-    ...(naviRates.status === 'fulfilled' ? naviRates.value : []),
-    ...(scallopRates.status === 'fulfilled' ? scallopRates.value : []),
-  ]
+const data: LiveRate[] = [
+  ...(naviRates.status === 'fulfilled' ? naviRates.value : []),
+  ...(scallopRates.status === 'fulfilled' ? scallopRates.value : []),
+  ...(suilendRates.status === 'fulfilled' ? suilendRates.value : []),
+]
 
   cache = { data, timestamp: Date.now() }
 
-  return NextResponse.json({
-    data,
-    cached: false,
-    timestamp: cache.timestamp,
-    counts: {
-      navi: naviRates.status === 'fulfilled' ? naviRates.value.length : 0,
-      scallop: scallopRates.status === 'fulfilled' ? scallopRates.value.length : 0,
-    },
-  })
+return NextResponse.json({
+  data,
+  cached: false,
+  timestamp: cache.timestamp,
+  counts: {
+    navi: naviRates.status === 'fulfilled' ? naviRates.value.length : 0,
+    scallop: scallopRates.status === 'fulfilled' ? scallopRates.value.length : 0,
+    suilend: suilendRates.status === 'fulfilled' ? suilendRates.value.length : 0,
+  },
+})
 }
