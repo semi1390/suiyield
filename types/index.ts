@@ -15,6 +15,7 @@ export interface YieldEntry {
   depositUrl: string
   color: string
   initials: string
+  logo?: string
   change24h?: number
   change7d?: number
   category: Category

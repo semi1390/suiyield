@@ -50,15 +50,20 @@ function mergeLiveRates(yields: YieldEntry[], liveRates: LiveRate[]): YieldEntry
 
     if (!live) return y
 
-    const totalApy = live.apyBase + live.apyReward
-    return {
-      ...y,
-      apy: totalApy,
-      tvl: live.tvlUsd > 0 ? live.tvlUsd : y.tvl,
-      isLive: true,
-      apyBase: live.apyBase,
-      apyReward: live.apyReward,
-    }
+const totalApy = live.apyBase + live.apyReward
+
+// Don't overwrite with 0% APY — keep original DeFiLlama data
+if (totalApy === 0) return y
+
+return {
+  ...y,
+  apy: totalApy,
+  tvl: live.tvlUsd > 0 ? live.tvlUsd : y.tvl,
+  isLive: true,
+  source: live.source,
+  apyBase: live.apyBase,
+  apyReward: live.apyReward,
+}
   })
 }
 

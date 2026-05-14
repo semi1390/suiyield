@@ -36,7 +36,6 @@ const ASSET_GROUPS: Record<string, string[]> = {
   "IKA":    ["IKA"],
 }
 
-// Assets that support native deposit via PTB
 const NATIVE_DEPOSIT_ASSETS = ["SUI","USDC","USDT","WETH","WBTC","NAVX","CETUS","DEEP","WAL","HASUI","VSUI"]
 
 function fmtTvl(n: number) {
@@ -52,6 +51,24 @@ function isNativeDeposit(y: YieldEntry): boolean {
   const asset = y.asset.toUpperCase()
   return (proto.includes("navi") || proto.includes("scallop")) &&
     NATIVE_DEPOSIT_ASSETS.includes(asset)
+}
+
+function ProtocolAvatar({ y }: { y: YieldEntry }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  return (
+    <div style={{ width: 28, height: 28, borderRadius: "50%", background: y.color + "22", border: `1px solid ${y.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: y.color, flexShrink: 0, overflow: "hidden" }}>
+      {y.logo && !imgFailed ? (
+        <img
+          src={y.logo}
+          alt={y.protocol}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <span style={{ fontSize: 9, fontWeight: 700, color: y.color }}>{y.initials}</span>
+      )}
+    </div>
+  )
 }
 
 function Dropdown({ value, options, onChange, prefix = "" }: {
@@ -151,7 +168,7 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
     <>
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "visible" }}>
 
-        {/* Tabs + filters */}
+        {/* Tabs */}
         <div style={{ borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "center", overflowX: "auto", padding: "0 8px" }}>
             {TABS.map(t => (
@@ -212,18 +229,16 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
             >
               {/* Protocol */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: y.color + "22", border: `1px solid ${y.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: y.color, flexShrink: 0 }}>
-                  {y.initials}
-                </div>
+                <ProtocolAvatar y={y} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{y.protocol}</span>
                     {i === 0 && (
                       <span style={{ fontSize: 9, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>Best</span>
                     )}
-{(y as any).isLive && (y as any).source !== 'defillama' && (
-  <span style={{ fontSize: 9, background: "rgba(0,212,170,0.12)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>LIVE</span>
-)}
+                    {(y as any).isLive && (y as any).source !== 'defillama' && (
+                      <span style={{ fontSize: 9, background: "rgba(0,212,170,0.12)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>LIVE</span>
+                    )}
                     {native && (
                       <span style={{ fontSize: 9, background: "rgba(75,139,255,0.12)", color: "#4B8BFF", border: "1px solid rgba(75,139,255,0.2)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>Native</span>
                     )}
@@ -276,7 +291,6 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
         )}
       </div>
 
-      {/* Deposit Modal */}
       {depositPool && (
         <Suspense fallback={null}>
           <DepositModal pool={depositPool} onClose={() => setDepositPool(null)} />

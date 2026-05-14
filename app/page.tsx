@@ -18,17 +18,30 @@ const FEATURES = [
 ]
 
 const PROTOCOLS = [
-  { name: "Navi Protocol", initials: "N",  color: "#1A4FE0", type: "Lending" },
-  { name: "Scallop",       initials: "Sc", color: "#8B5CF6", type: "Lending" },
-  { name: "Suilend",       initials: "Sl", color: "#EC4899", type: "Lending" },
-  { name: "Cetus LP",      initials: "C",  color: "#06B6D4", type: "DEX" },
-  { name: "Bluefin",       initials: "Bf", color: "#2563EB", type: "DEX" },
-  { name: "Turbos",        initials: "T",  color: "#F97316", type: "DEX" },
-  { name: "Current",       initials: "Cu", color: "#0EA5E9", type: "Yield" },
-  { name: "Kai Finance",   initials: "K",  color: "#14B8A6", type: "Lending" },
+  { name: "Navi Protocol", initials: "N",  color: "#1A4FE0", type: "Lending", logo: "https://icons.llama.fi/navi-protocol.png" },
+  { name: "Scallop",       initials: "Sc", color: "#8B5CF6", type: "Lending", logo: "https://icons.llama.fi/scallop.png" },
+  { name: "Suilend",       initials: "Sl", color: "#EC4899", type: "Lending", logo: "https://icons.llama.fi/suilend.png" },
+  { name: "Cetus LP",      initials: "C",  color: "#06B6D4", type: "DEX",     logo: "https://icons.llama.fi/cetus.png" },
+  { name: "Bluefin",       initials: "Bf", color: "#2563EB", type: "DEX",     logo: "https://icons.llama.fi/bluefin.png" },
+  { name: "Turbos",        initials: "T",  color: "#F97316", type: "DEX",     logo: "https://icons.llama.fi/turbos-finance.png" },
+  { name: "Current",       initials: "Cu", color: "#0EA5E9", type: "Yield",   logo: "https://icons.llama.fi/current.png" },
+  { name: "Kai Finance",   initials: "K",  color: "#14B8A6", type: "Lending", logo: "https://icons.llama.fi/kai-finance.png" },
 ]
 
-interface LiveRate { protocol: string; asset: string; apy: number; color: string; initials: string; depositUrl: string }
+interface LiveRate { protocol: string; asset: string; apy: number; color: string; initials: string; logo?: string; depositUrl: string }
+
+function ProtocolLogo({ logo, initials, color, size = 30 }: { logo?: string; initials: string; color: string; size?: number }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <div style={{ width: size, height: size, borderRadius: "50%", background: color + "22", border: `1px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.3, fontWeight: 700, color, overflow: "hidden", flexShrink: 0 }}>
+      {logo && !failed ? (
+        <img src={logo} alt={initials} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={() => setFailed(true)} />
+      ) : (
+        initials
+      )}
+    </div>
+  )
+}
 
 export default function LandingPage() {
   const [rates, setRates] = useState<LiveRate[]>([])
@@ -41,7 +54,7 @@ export default function LandingPage() {
         const top = (d.yields || [])
           .sort((a: any, b: any) => b.apy - a.apy)
           .slice(0, 4)
-          .map((y: any) => ({ protocol: y.protocol, asset: y.asset, apy: y.apy, color: y.color, initials: y.initials, depositUrl: y.depositUrl }))
+          .map((y: any) => ({ protocol: y.protocol, asset: y.asset, apy: y.apy, color: y.color, initials: y.initials, logo: y.logo, depositUrl: y.depositUrl }))
         setRates(top)
         setLoaded(true)
       })
@@ -70,7 +83,6 @@ export default function LandingPage() {
 
       {/* Hero */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "60px 20px 48px", textAlign: "center" }}>
-        {/* Live badge */}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(0,212,170,0.08)", border: "1px solid rgba(0,212,170,0.2)", borderRadius: 20, padding: "5px 14px", marginBottom: 24 }}>
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00D4AA", animation: "pulse 2s infinite" }} />
           <span style={{ fontSize: 12, color: "#00D4AA", fontWeight: 500 }}>Live on Sui mainnet · 112+ pools tracked</span>
@@ -122,7 +134,7 @@ export default function LandingPage() {
             rates.map((r, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: r.color + "22", border: `1px solid ${r.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: r.color }}>{r.initials}</div>
+                  <ProtocolLogo logo={r.logo} initials={r.initials} color={r.color} size={30} />
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>{r.protocol}</div>
                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{r.asset}</div>
@@ -132,16 +144,15 @@ export default function LandingPage() {
               </div>
             ))
           ) : (
-            // Fallback hardcoded rates if API slow
             [
-              { protocol: "Navi", asset: "DEEP", apy: "23.92%", color: "#1A4FE0", initials: "N" },
-              { protocol: "Bluefin", asset: "WAL-SUI", apy: "72.45%", color: "#2563EB", initials: "Bf" },
-              { protocol: "Cetus", asset: "USDC-SUI", apy: "55.71%", color: "#06B6D4", initials: "C" },
-              { protocol: "Current", asset: "USDC", apy: "9.63%", color: "#0EA5E9", initials: "Cu" },
+              { protocol: "Navi", asset: "DEEP", apy: "23.92%", color: "#1A4FE0", initials: "N", logo: "https://icons.llama.fi/navi-protocol.png" },
+              { protocol: "Bluefin", asset: "WAL-SUI", apy: "72.45%", color: "#2563EB", initials: "Bf", logo: "https://icons.llama.fi/bluefin.png" },
+              { protocol: "Cetus", asset: "USDC-SUI", apy: "55.71%", color: "#06B6D4", initials: "C", logo: "https://icons.llama.fi/cetus.png" },
+              { protocol: "Current", asset: "USDC", apy: "9.63%", color: "#0EA5E9", initials: "Cu", logo: "https://icons.llama.fi/current.png" },
             ].map((r, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: "50%", background: r.color + "22", border: `1px solid ${r.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: r.color }}>{r.initials}</div>
+                  <ProtocolLogo logo={r.logo} initials={r.initials} color={r.color} size={30} />
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>{r.protocol}</div>
                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{r.asset}</div>
@@ -196,7 +207,7 @@ export default function LandingPage() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
             {PROTOCOLS.map((p, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 9, padding: "7px 12px" }}>
-                <div style={{ width: 20, height: 20, borderRadius: "50%", background: p.color + "22", border: `1px solid ${p.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: p.color }}>{p.initials}</div>
+                <ProtocolLogo logo={p.logo} initials={p.initials} color={p.color} size={20} />
                 <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 500 }}>{p.name}</span>
                 <span style={{ fontSize: 9, color: "var(--text-muted)", background: "var(--bg-card)", borderRadius: 3, padding: "1px 4px" }}>{p.type}</span>
               </div>
