@@ -145,19 +145,24 @@ export default function DepositModal({ pool, onClose }: Props) {
     setStatus("success")
   }
 
-  async function handleScallopDeposit() {
-    const { Scallop } = await import("@scallop-io/sui-scallop-sdk")
-    const coinName = SCALLOP_COIN_NAMES[asset]
-    if (!coinName) throw new Error(`${asset} not yet supported on Scallop`)
-    const scallop = new Scallop({ networkType: "mainnet", walletAddress: account!.address })
-    const scallopClient = await scallop.createScallopClient()
-    const txBlock = await scallopClient.deposit(coinName, Number(amountInBaseUnits), true)
-    if (!txBlock) throw new Error("Failed to build Scallop transaction")
-    setStatus("signing")
-    const result = await signAndExecute({ transaction: txBlock as any })
-    setTxHash(result.digest)
-    setStatus("success")
-  }
+async function handleScallopDeposit() {
+  const res = await fetch("/api/deposit/scallop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      address: account!.address,
+      coinType,
+      amountInBaseUnits: amountInBaseUnits.toString(),
+    }),
+  })
+  const data = await res.json()
+  if (!res.ok || data.error) throw new Error(data.error ?? "Failed to build transaction")
+  const txBytes = Uint8Array.from(Buffer.from(data.txBase64, "base64"))
+  setStatus("signing")
+  const result = await signAndExecute({ transaction: Transaction.from(txBytes) as any })
+  setTxHash(result.digest)
+  setStatus("success")
+}
 
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 
