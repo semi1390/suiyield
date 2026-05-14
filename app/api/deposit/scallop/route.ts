@@ -2,33 +2,11 @@ import { NextResponse } from "next/server"
 import { Transaction } from "@mysten/sui/transactions"
 import { SuiClient } from "@mysten/sui/client"
 
-// Scallop contract addresses — immutable on mainnet
+// Scallop mainnet contract addresses — immutable, never change
 const SCALLOP_VERSION = "0x07871c4b3c847a0f674510d4978d5cf6f960452795e8ff6f189fd2088a3f6ac7"
 const SCALLOP_MARKET  = "0xa757975255146dc9686aa823b7838b507f315d704f428cbadad2f4ea061939d9"
 const SCALLOP_PACKAGE = "0xa45b8ffca59e5b44ec7c04481a04cb620b0e07b2b183527bca4e5f32372c5f1a"
 const CLOCK_ID        = "0x0000000000000000000000000000000000000000000000000000000000000006"
-
-// Cache Scallop addresses for 1 hour — fetched from their SDK
-let addressCache: { data: any; ts: number } | null = null
-const ADDRESS_TTL = 60 * 60 * 1000
-
-async function getScallopAddresses() {
-  if (addressCache && Date.now() - addressCache.ts < ADDRESS_TTL) {
-    return addressCache.data
-  }
-  try {
-    const { Scallop } = await import("@scallop-io/sui-scallop-sdk")
-    const scallop = new Scallop({ networkType: "mainnet" })
-    const scallopAddress = await scallop.getScallopAddress()
-    const addresses = scallopAddress.getAllAddresses()
-    addressCache = { data: addresses, ts: Date.now() }
-    console.log("[deposit/scallop] loaded addresses from SDK")
-    return addresses
-  } catch (e) {
-    console.log("[deposit/scallop] SDK address fetch failed, using hardcoded:", e)
-    return null
-  }
-}
 
 export async function POST(req: Request) {
   try {
@@ -65,8 +43,7 @@ export async function POST(req: Request) {
       coinArg = split
     }
 
-    // Call Scallop mint::mint — deposits coin and returns sCoin
-    // This is the standard lending deposit on Scallop
+    // Scallop deposit — mint sCoin in exchange for deposited asset
     const sCoin = tx.moveCall({
       target: `${SCALLOP_PACKAGE}::mint::mint`,
       typeArguments: [coinType],
@@ -78,7 +55,7 @@ export async function POST(req: Request) {
       ],
     })
 
-    // Transfer sCoin back to user
+    // Return sCoin to user wallet
     tx.transferObjects([sCoin], address)
 
     const txBytes = await tx.build({ client: suiClient })

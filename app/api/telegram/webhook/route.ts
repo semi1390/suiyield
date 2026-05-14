@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       const walletAddress = parts[1] ?? null
 
       if (walletAddress && walletAddress.startsWith("0x")) {
-        // Save wallet → chatId mapping in Redis
+        // Save wallet → chatId mapping
         await redis.set(`tg:${walletAddress}`, chatId.toString(), { ex: 60 * 60 * 24 * 365 })
         await redis.set(`tg:reverse:${chatId}`, walletAddress, { ex: 60 * 60 * 24 * 365 })
 
@@ -33,11 +33,10 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             chat_id: chatId,
             parse_mode: "HTML",
-            text: `✅ <b>Connected to SuiYield!</b>\n\nHey ${firstName}! Your wallet is now linked.\n\n<code>${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}</code>\n\nYou'll receive yield alerts here when your thresholds are hit. Go back to SuiYield to create your first alert 🚀`,
+            text: `✅ <b>Connected to SuiYield!</b>\n\nHey ${firstName}! Your wallet is now linked.\n\n<code>${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}</code>\n\nGo back to SuiYield to create your first alert 🚀`,
           }),
         })
       } else {
-        // No wallet address — generic start
         await fetch(`${TELEGRAM_API}/sendMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -51,8 +50,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ok: true })
-  } catch (err) {
-    console.error("[telegram/webhook]", err)
+  } catch (err: any) {
+    console.error("[webhook] error:", err)
     return NextResponse.json({ ok: true })
   }
 }
