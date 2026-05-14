@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import initCetusSDK from "@cetusprotocol/sui-clmm-sdk"
+import { initCetusSDK } from "@cetusprotocol/cetus-sui-clmm-sdk"
 
 const cetusSDK = initCetusSDK({
   network: "mainnet",
