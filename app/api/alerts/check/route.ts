@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server"
 import { Redis } from "@upstash/redis"
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://suiyield-umzj.vercel.app"
+
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 })
 
 const TELEGRAM_API = `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`
-const COOLDOWN_MS = 60 * 60 * 1000 // 1 hour between alerts for same condition
+const COOLDOWN_MS = 60 * 60 * 1000
 
 interface Alert {
   id: string
@@ -24,12 +26,10 @@ interface Alert {
 
 export async function GET() {
   try {
-    // 1. Fetch all live rates
-    const ratesRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? "https://suiyield-umzj.vercel.app"}/api/live-rates`)
+    const ratesRes = await fetch(`${APP_URL}/api/live-rates`)
     const ratesData = await ratesRes.json()
     const rates = ratesData.data ?? []
 
-    // Build rate lookup: "navi:USDC" -> totalApy
     const rateMap = new Map<string, number>()
     for (const r of rates) {
       const key = `${r.protocol}:${r.symbol?.toUpperCase()}`
@@ -40,7 +40,6 @@ export async function GET() {
       ))
     }
 
-    // 2. Get all alert keys
     const keys = await redis.keys("alert:*")
     if (!keys.length) return NextResponse.json({ checked: 0, triggered: 0 })
 
@@ -50,10 +49,8 @@ export async function GET() {
     let triggered = 0
 
     for (const alert of activeAlerts) {
-      // Cooldown check
       if (alert.lastTriggered && Date.now() - alert.lastTriggered < COOLDOWN_MS) continue
 
-      // Find current APY for this asset+protocol
       const protocolKey = alert.protocol === "Any protocol"
         ? `any:${alert.asset.toUpperCase()}`
         : `${alert.protocol.toLowerCase().includes("navi") ? "navi" : "scallop"}:${alert.asset.toUpperCase()}`
@@ -67,12 +64,12 @@ export async function GET() {
 
       if (!shouldTrigger) continue
 
-      // Send Telegram message
       const protocolDisplay = alert.protocol === "Any protocol" ? "Sui protocols" : alert.protocol
-      const message = `🔔 <b>SuiYield Alert</b>\n\n` +
+      const message =
+        `🔔 <b>SuiYield Alert</b>\n\n` +
         `<b>${alert.asset}</b> on ${protocolDisplay} is now at <b>${currentApy.toFixed(2)}%</b> APY\n` +
         `Your threshold: ${alert.direction} ${alert.threshold}%\n\n` +
-        `<a href="https://suiyield-umzj.vercel.app/app">View opportunities →</a>`
+        `<a href="${APP_URL}/app">View opportunities →</a>`
 
       try {
         await fetch(`${TELEGRAM_API}/sendMessage`, {
@@ -81,11 +78,10 @@ export async function GET() {
           body: JSON.stringify({ chat_id: alert.chatId, text: message, parse_mode: "HTML" }),
         })
 
-        // Update lastTriggered
         alert.lastTriggered = Date.now()
         await redis.set(`alert:${alert.walletAddress}:${alert.id}`, alert, { ex: 60 * 60 * 24 * 90 })
         triggered++
-        console.log(`[alerts/check] Triggered alert for ${alert.asset} at ${currentApy.toFixed(2)}%`)
+        console.log(`[alerts/check] Triggered ${alert.asset} at ${currentApy.toFixed(2)}%`)
       } catch (e) {
         console.error("[alerts/check] Telegram send failed:", e)
       }
