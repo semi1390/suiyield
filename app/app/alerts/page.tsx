@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react"
 import Navbar from "@/components/Navbar"
 import { useCurrentAccount } from "@mysten/dapp-kit"
-import { Bell, Plus, Trash2, Loader2, CheckCircle, AlertCircle, ExternalLink, Send } from "lucide-react"
+import { Bell, Plus, Trash2, Loader2, CheckCircle, AlertCircle, ExternalLink, Send, Copy } from "lucide-react"
 
 const ASSETS = ["USDC", "USDT", "SUI", "DEEP", "WAL", "WETH", "NAVX", "CETUS", "HASUI", "VSUI", "HAEDAL"]
 const PROTOCOLS = ["Any protocol", "Navi Protocol", "Scallop"]
@@ -27,6 +27,7 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(false)
   const [tgConnected, setTgConnected] = useState(false)
   const [tgChecking, setTgChecking] = useState(false)
+  const [polling, setPolling] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ asset: "USDC", protocol: "Any protocol", direction: "above" as "above" | "below", threshold: "" })
   const [saving, setSaving] = useState(false)
@@ -34,7 +35,6 @@ export default function AlertsPage() {
   const [errorMsg, setErrorMsg] = useState("")
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Check Telegram connection status
   async function checkTgStatus() {
     if (!account?.address) return
     try {
@@ -42,7 +42,7 @@ export default function AlertsPage() {
       const data = await res.json()
       if (data.connected) {
         setTgConnected(true)
-        // Stop polling once connected
+        setPolling(false)
         if (pollRef.current) clearInterval(pollRef.current)
       }
     } catch {}
@@ -54,7 +54,6 @@ export default function AlertsPage() {
     checkTgStatus().finally(() => setTgChecking(false))
   }, [account?.address])
 
-  // Load alerts
   useEffect(() => {
     if (!account?.address || !tgConnected) return
     setLoading(true)
@@ -65,22 +64,26 @@ export default function AlertsPage() {
       .finally(() => setLoading(false))
   }, [account?.address, tgConnected])
 
- function connectTelegram() {
-  if (!account?.address) return
-  // Telegram start param only allows alphanumeric and _ -
-  // Remove 0x prefix and add it back in webhook
-  const walletParam = account.address.replace("0x", "sui")
-  const url = `https://t.me/${BOT_USERNAME}?start=${walletParam}`
-  window.open(url, "_blank")
-
-    // Start polling for connection every 3 seconds
+  function connectTelegram() {
+    if (!account?.address) return
+    const walletParam = account.address.replace("0x", "sui")
+    const url = `https://t.me/${BOT_USERNAME}?start=${walletParam}`
+    window.open(url, "_blank")
+    setPolling(true)
     if (pollRef.current) clearInterval(pollRef.current)
     pollRef.current = setInterval(checkTgStatus, 3000)
-
-    // Stop polling after 2 minutes
     setTimeout(() => {
       if (pollRef.current) clearInterval(pollRef.current)
+      setPolling(false)
     }, 120000)
+  }
+
+  function copyCommand() {
+    if (!account?.address) return
+    const cmd = `/start sui${account.address.slice(2)}`
+    navigator.clipboard.writeText(cmd)
+    setSuccessMsg("Copied! Paste it in the Telegram bot.")
+    setTimeout(() => setSuccessMsg(""), 3000)
   }
 
   async function disconnectTelegram() {
@@ -140,7 +143,6 @@ export default function AlertsPage() {
     } catch {}
   }
 
-  // Cleanup polling on unmount
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
   return (
@@ -174,7 +176,6 @@ export default function AlertsPage() {
           </div>
         )}
 
-        {/* Not connected wallet */}
         {!account ? (
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 40px", textAlign: "center" }}>
             <Bell size={32} style={{ color: "var(--text-muted)", margin: "0 auto 16px", display: "block" }} />
@@ -185,9 +186,8 @@ export default function AlertsPage() {
           <>
             {/* Telegram Connection Card */}
             <div style={{ background: "var(--bg-card)", border: `1px solid ${tgConnected ? "var(--green-border)" : "var(--border)"}`, borderRadius: 16, padding: 24, marginBottom: 24 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tgConnected ? 0 : 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  {/* Telegram icon */}
                   <div style={{ width: 44, height: 44, borderRadius: "50%", background: tgConnected ? "var(--green-bg)" : "#2AABEE22", border: `1px solid ${tgConnected ? "var(--green-border)" : "#2AABEE44"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Send size={20} style={{ color: tgConnected ? "var(--green)" : "#2AABEE" }} />
                   </div>
@@ -200,12 +200,11 @@ export default function AlertsPage() {
                     </div>
                     <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
                       {tgConnected
-                        ? "Your wallet is linked to Telegram. You'll receive alerts directly in the app."
-                        : "Connect Telegram to receive yield alerts instantly on your phone."}
+                        ? "Your wallet is linked. Alerts will be sent to your Telegram."
+                        : "Connect Telegram to receive yield alerts on your phone."}
                     </div>
                   </div>
                 </div>
-
                 <div>
                   {tgChecking ? (
                     <Loader2 size={18} style={{ animation: "spin 1s linear infinite", color: "var(--text-muted)" }} />
@@ -224,32 +223,41 @@ export default function AlertsPage() {
                 </div>
               </div>
 
-              {/* Waiting for connection */}
-              {!tgConnected && pollRef.current && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, padding: "10px 14px", background: "var(--bg-elevated)", borderRadius: 10, fontSize: 13, color: "var(--text-secondary)" }}>
-                  <Loader2 size={13} style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} />
-                  Waiting for you to start the bot in Telegram...
+              {/* Instructions — only when not connected */}
+              {!tgConnected && (
+                <div style={{ background: "var(--bg-elevated)", borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 10 }}>How to connect:</div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.8, marginBottom: 12 }}>
+                    <strong>Step 1:</strong> Click <strong>Connect Telegram</strong> above and press <strong>START</strong> in the bot.<br />
+                    <strong>Step 2:</strong> If you've used the bot before, send this command manually instead:
+                  </div>
+                  {account?.address && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-card)", borderRadius: 8, padding: "10px 14px" }}>
+                      <code style={{ flex: 1, fontSize: 12, color: "var(--green)", wordBreak: "break-all" }}>
+                        /start sui{account.address.slice(2)}
+                      </code>
+                      <button onClick={copyCommand}
+                        style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, background: "var(--green-bg)", border: "1px solid var(--green-border)", borderRadius: 6, padding: "5px 10px", fontSize: 12, color: "var(--green)", cursor: "pointer", fontWeight: 600 }}>
+                        <Copy size={11} /> Copy
+                      </button>
+                      <a href={`https://t.me/${BOT_USERNAME}`} target="_blank" rel="noopener noreferrer"
+                        style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, background: "#2AABEE22", border: "1px solid #2AABEE44", borderRadius: 6, padding: "5px 10px", fontSize: 12, color: "#2AABEE", textDecoration: "none", fontWeight: 600 }}>
+                        <ExternalLink size={11} /> Open Bot
+                      </a>
+                    </div>
+                  )}
+                  {polling && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, fontSize: 12, color: "var(--text-muted)" }}>
+                      <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+                      Waiting for connection... (checking every 3s)
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Only show rest if Telegram connected */}
-            {!tgConnected ? (
-              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 32, textAlign: "center" }}>
-                <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 20, lineHeight: 1.8 }}>
-                  To receive alerts:<br />
-                  1. Click <strong>Connect Telegram</strong> above<br />
-                  2. Press <strong>START</strong> in the Telegram bot<br />
-                  3. Come back here and create your first alert
-                </div>
-                <button onClick={connectTelegram}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2AABEE", color: "#fff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-                  <ExternalLink size={14} />
-                  Open Telegram Bot
-                </button>
-              </div>
-
-            ) : (
+            {/* Rest of UI — only when Telegram connected */}
+            {tgConnected && (
               <>
                 {/* New alert form */}
                 {showForm && (
@@ -277,7 +285,6 @@ export default function AlertsPage() {
                       </div>
                     </div>
 
-                    {/* Preview */}
                     <div style={{ background: "var(--bg-elevated)", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "var(--text-secondary)" }}>
                       📲 When <strong style={{ color: "var(--text-primary)" }}>{form.asset}</strong> on <strong style={{ color: "var(--text-primary)" }}>{form.protocol}</strong> goes <strong style={{ color: "var(--text-primary)" }}>{form.direction}</strong> <strong style={{ color: "var(--green)" }}>{form.threshold || "?"}%</strong> APY → Telegram message
                     </div>
