@@ -61,79 +61,83 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
 
   return (
     <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
+      {/* Protocol header */}
       <div
         onClick={() => setExpanded(e => !e)}
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", cursor: "pointer", borderBottom: expanded ? "1px solid var(--border)" : "none" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", cursor: "pointer", borderBottom: expanded ? "1px solid var(--border)" : "none", flexWrap: "wrap", gap: 8 }}
         onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: color + "22", border: `1px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: color + "22", border: `1px solid ${color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color, flexShrink: 0 }}>
             {initials}
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>{protocol}</span>
-              <span style={{ fontSize: 10, background: "rgba(75,139,255,0.12)", color: "#4B8BFF", borderRadius: 4, padding: "2px 6px", fontWeight: 600 }}>Lending</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{protocol}</span>
+              <span style={{ fontSize: 9, background: "rgba(75,139,255,0.12)", color: "#4B8BFF", borderRadius: 4, padding: "2px 6px", fontWeight: 600 }}>Lending</span>
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{positions.length} position{positions.length > 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{positions.length} position{positions.length > 1 ? "s" : ""}</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>Net Value</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>${fmt(totalValue)}</div>
+            <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Net Value</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>${fmt(totalValue)}</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>APY</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--green)" }}>{avgApy.toFixed(2)}%</div>
+            <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>APY</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>{avgApy.toFixed(2)}%</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>24h Earnings</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--green)" }}>+${fmt(daily24h)}</div>
+            <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>24h</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>+${fmt(daily24h)}</div>
           </div>
-          {expanded ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
+          {expanded ? <ChevronUp size={15} color="var(--text-muted)" /> : <ChevronDown size={15} color="var(--text-muted)" />}
         </div>
       </div>
 
+      {/* Positions table — scrollable on mobile */}
       {expanded && (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", padding: "8px 20px", borderBottom: "1px solid var(--border)" }}>
-            {["Asset", "Balance", "Net Value", "APY", "Earnings (24h)"].map((h, i) => (
-              <div key={i} style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
-            ))}
+       <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+  <div style={{ minWidth: 340 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", padding: "8px 16px", borderBottom: "1px solid var(--border)" }}>
+              {["Asset", "Balance", "Net Value", "APY", "24h"].map((h, i) => (
+                <div key={i} style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
+              ))}
+            </div>
+            {positions.map((p, i) => {
+              const daily = (p.valueUsd * p.apy) / 100 / 365
+              return (
+                <div key={i}
+                  style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr 0.6fr 0.6fr", padding: "12px 16px", borderTop: i > 0 ? "1px solid var(--border)" : "none", alignItems: "center", transition: "background 0.15s" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--bg-elevated)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "var(--text-secondary)", flexShrink: 0 }}>
+                      {p.asset.slice(0, 2)}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{p.asset}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Lent</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    {p.supplyBalance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>${fmt(p.valueUsd)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: p.apy > 0 ? "var(--green)" : "var(--text-muted)" }}>
+                    {p.apy > 0 ? `${p.apy.toFixed(2)}%` : "—"}
+                  </div>
+                  <div style={{ fontSize: 12, color: daily > 0 ? "var(--green)" : "var(--text-muted)" }}>
+                    {daily > 0 ? `+$${fmt(daily)}` : "—"}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-          {positions.map((p, i) => {
-            const daily = (p.valueUsd * p.apy) / 100 / 365
-            return (
-              <div key={i}
-                style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", padding: "14px 20px", borderTop: i > 0 ? "1px solid var(--border)" : "none", alignItems: "center", transition: "background 0.15s" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--bg-elevated)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "var(--text-secondary)" }}>
-                    {p.asset.slice(0, 2)}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{p.asset}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Lent</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {p.supplyBalance.toLocaleString("en-US", { maximumFractionDigits: 4 })} {p.asset}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>${fmt(p.valueUsd)}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: p.apy > 0 ? "var(--green)" : "var(--text-muted)" }}>
-                  {p.apy > 0 ? `${p.apy.toFixed(2)}%` : "—"}
-                </div>
-                <div style={{ fontSize: 13, color: daily > 0 ? "var(--green)" : "var(--text-muted)" }}>
-                  {daily > 0 ? `+$${fmt(daily)}` : "—"}
-                </div>
-              </div>
-            )
-          })}
-        </>
+        </div>
       )}
     </div>
   )
@@ -148,8 +152,6 @@ export default function PositionsPage() {
   const [tick, setTick] = useState(0)
   const [activeTab, setActiveTab] = useState<"all" | "lending" | "dex" | "staking">("all")
   const [moveFundsTarget, setMoveFundsTarget] = useState<RealPosition | null>(null)
-
-  // Live rates for dynamic opportunities — no hardcoding
   const [liveRates, setLiveRates] = useState<LiveRate[]>([])
 
   useEffect(() => {
@@ -161,7 +163,6 @@ export default function PositionsPage() {
     return () => clearInterval(t)
   }, [])
 
-  // Fetch live rates for opportunity suggestions
   useEffect(() => {
     fetch("/api/live-rates")
       .then(r => r.json())
@@ -188,40 +189,26 @@ export default function PositionsPage() {
   const filteredPositions = activeTab === "all" ? positions :
     activeTab === "lending" ? positions.filter(p => !p.asset.includes("/")) :
     activeTab === "dex" ? positions.filter(p => p.asset.includes("/")) :
-    activeTab === "staking" ? positions.filter(p => ["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s))) :
-    positions
+    positions.filter(p => ["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s)))
 
   const grouped = groupByProtocol(filteredPositions)
 
-  // Build opportunities dynamically from live rates + user positions
   const opportunities: Opportunity[] = []
   for (const pos of positions) {
     const assetUpper = pos.asset.toUpperCase()
     const currentProtocol = pos.protocol.toLowerCase().includes("navi") ? "navi" : "scallop"
-
-    // Find best rate for this asset from a DIFFERENT protocol
     const bestOther = liveRates
-      .filter(r => {
-        const sym = r.symbol?.toUpperCase()
-        return sym === assetUpper && r.protocol !== currentProtocol
-      })
+      .filter(r => r.symbol?.toUpperCase() === assetUpper && r.protocol !== currentProtocol)
       .sort((a, b) => (b.apyBase + b.apyReward) - (a.apyBase + a.apyReward))[0]
-
     if (!bestOther) continue
-
-    const currentApy = pos.apy
-    const bestApy = bestOther.apyBase + bestOther.apyReward
-    const extra = bestApy - currentApy
-
-    // Only suggest if improvement is meaningful (> 0.5%)
+    const extra = (bestOther.apyBase + bestOther.apyReward) - pos.apy
     if (extra < 0.5) continue
-
     opportunities.push({
       asset: pos.asset,
       fromProtocol: pos.protocol,
       toProtocol: bestOther.protocol === "navi" ? "Navi Protocol" : "Scallop",
-      fromApy: currentApy,
-      toApy: bestApy,
+      fromApy: pos.apy,
+      toApy: bestOther.apyBase + bestOther.apyReward,
       extra,
     })
   }
@@ -231,140 +218,124 @@ export default function PositionsPage() {
       <Navbar />
       {account?.address && <PositionsFetcher walletAddress={account.address} onPositions={handlePositions} />}
 
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 24px" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px" }}>
 
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, gap: 12, flexWrap: "wrap" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)" }}>My Positions</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>My Positions</h1>
               {source === "live" && (
                 <span style={{ fontSize: 10, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 20, padding: "2px 8px", fontWeight: 600 }}>LIVE</span>
               )}
             </div>
-            <p style={{ fontSize: 14, color: "var(--text-secondary)" }}>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
               {source === "live"
-                ? `View all your positions across DeFi protocols on Sui · updated ${secAgo}s ago`
-                : "Track all your active DeFi positions across Sui protocols"}
+                ? `Updated ${secAgo}s ago · Navi + Scallop`
+                : "Track your DeFi positions across Sui"}
             </p>
           </div>
           {account && (
-            <button style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 14px", fontSize: 13, color: "var(--text-secondary)", cursor: "pointer" }}>
-              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <button style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "var(--text-secondary)", cursor: "pointer", flexShrink: 0 }}>
+              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
               Refresh
             </button>
           )}
         </div>
 
         {!account ? (
-          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 40px", textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-              <Wallet size={24} style={{ color: "var(--text-muted)" }} />
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 20px", textAlign: "center" }}>
+            <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+              <Wallet size={22} style={{ color: "var(--text-muted)" }} />
             </div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Connect your wallet</div>
-            <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>Connect your Sui wallet to see your real on-chain positions on Navi and Scallop.</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Connect your wallet</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320, margin: "0 auto" }}>Connect your Sui wallet to see your real on-chain positions on Navi and Scallop.</div>
           </div>
 
         ) : loading ? (
-          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 40px", textAlign: "center" }}>
-            <Loader2 size={28} style={{ color: "var(--green)", animation: "spin 1s linear infinite", margin: "0 auto 16px", display: "block" }} />
-            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)", marginBottom: 6 }}>Reading your on-chain positions...</div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Checking Navi Protocol and Scallop</div>
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 20px", textAlign: "center" }}>
+            <Loader2 size={26} style={{ color: "var(--green)", animation: "spin 1s linear infinite", margin: "0 auto 14px", display: "block" }} />
+            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", marginBottom: 6 }}>Reading your on-chain positions...</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Checking Navi Protocol and Scallop</div>
           </div>
 
         ) : source === "empty" ? (
-          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 40px", textAlign: "center" }}>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>No positions found</div>
-            <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 4 }}>This wallet has no active supply positions on Navi or Scallop.</div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>More protocols coming in v2.</div>
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>No positions found</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>No active supply positions on Navi or Scallop.</div>
           </div>
 
         ) : (
           <>
-            {/* Summary stats */}
-            <div className="stats-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
+            {/* Stats — 2 cols on mobile, 4 on desktop */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 20 }} className="stats-grid">
               {[
-                { icon: DollarSign, label: "Total Net Value", value: `$${fmt(total)}`,        sub: `${positions.length} positions` },
-                { icon: TrendingUp, label: "Total Earnings",  value: `$${fmt(totalEarnings)}`, sub: "at current APY" },
-                { icon: Activity,   label: "Real-time APY",   value: `${avgApy.toFixed(2)}%`,  sub: "weighted average" },
-                { icon: Activity,   label: "24h Earnings",    value: `+$${fmt(daily24h)}`,     sub: "at current rates" },
+                { icon: DollarSign, label: "Net Value",    value: `$${fmt(total)}`,          sub: `${positions.length} positions` },
+                { icon: TrendingUp, label: "Yearly Est.",  value: `$${fmt(totalEarnings)}`,  sub: "at current APY" },
+                { icon: Activity,   label: "Avg APY",      value: `${avgApy.toFixed(2)}%`,   sub: "weighted average" },
+                { icon: Activity,   label: "24h Earnings", value: `+$${fmt(daily24h)}`,      sub: "at current rates" },
               ].map((s, i) => (
-                <div key={i} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 18 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                    <s.icon size={14} style={{ color: "var(--green)" }} />
-                    <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{s.label}</span>
+                <div key={i} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <s.icon size={13} style={{ color: "var(--green)" }} />
+                    <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{s.label}</span>
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>{s.value}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.sub}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>{s.value}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{s.sub}</div>
                 </div>
               ))}
             </div>
 
             {/* Tabs */}
-            <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: 4, width: "fit-content" }}>
+            <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: 4, overflowX: "auto" }}>
               {(["all", "lending", "dex", "staking"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  style={{ padding: "6px 16px", borderRadius: 8, fontSize: 13, fontWeight: 500, border: "none", cursor: "pointer", background: activeTab === tab ? "var(--bg-elevated)" : "transparent", color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)", textTransform: "capitalize" }}>
-                  {tab === "all" ? "All Positions" : tab === "dex" ? "DEX LP" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500, border: "none", cursor: "pointer", background: activeTab === tab ? "var(--bg-elevated)" : "transparent", color: activeTab === tab ? "var(--text-primary)" : "var(--text-muted)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {tab === "all" ? "All" : tab === "dex" ? "DEX LP" : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
               ))}
             </div>
 
-            {/* Main grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "start" }}>
+            {/* Main — stacks on mobile */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }} className="positions-main">
 
-              {/* Left — protocol groups */}
+              {/* Protocol groups */}
               <div>
                 {Object.entries(grouped).length === 0 ? (
                   <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "40px 20px", textAlign: "center" }}>
-                    <div style={{ fontSize: 14, color: "var(--text-muted)" }}>No {activeTab} positions found</div>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)" }}>No {activeTab} positions found</div>
                   </div>
                 ) : (
                   Object.entries(grouped).map(([protocol, protocolPositions]) => (
-                    <ProtocolGroup
-                      key={protocol}
-                      protocol={protocol}
-                      positions={protocolPositions}
-                      fmt={fmt}
-                      onMoveFunds={setMoveFundsTarget}
-                    />
+                    <ProtocolGroup key={protocol} protocol={protocol} positions={protocolPositions} fmt={fmt} onMoveFunds={setMoveFundsTarget} />
                   ))
                 )}
               </div>
 
-              {/* Right sidebar */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-                {/* Opportunities — fully dynamic from live rates */}
-                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Your Top Opportunities</div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>Based on your holdings + live rates</div>
-
+              {/* Sidebar — opportunities + projection */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Opportunities */}
+                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Top Opportunities</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 14 }}>Based on your holdings + live rates</div>
                   {opportunities.length === 0 ? (
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "20px 0" }}>
-                      {liveRates.length === 0 ? "Loading rates..." : "You're already in the best positions!"}
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", padding: "16px 0" }}>
+                      {liveRates.length === 0 ? "Loading rates..." : "You're in the best positions!"}
                     </div>
                   ) : (
                     opportunities.slice(0, 3).map((o, i) => (
-                      <div key={i} style={{ background: "var(--bg-elevated)", borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
-                          {o.asset} · {o.fromProtocol} → {o.toProtocol}
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                          <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                      <div key={i} style={{ background: "var(--bg-elevated)", borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>{o.asset} · {o.fromProtocol} → {o.toProtocol}</div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                             {o.fromApy.toFixed(2)}% → <span style={{ color: "var(--green)", fontWeight: 600 }}>{o.toApy.toFixed(2)}%</span>
                           </div>
-                          <span style={{ fontSize: 12, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>
-                            +{o.extra.toFixed(2)}%
-                          </span>
+                          <span style={{ fontSize: 11, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 6, padding: "2px 6px", fontWeight: 600 }}>+{o.extra.toFixed(2)}%</span>
                         </div>
                         <button
-                          onClick={() => {
-                            const pos = positions.find(p => p.asset === o.asset)
-                            if (pos) setMoveFundsTarget(pos)
-                          }}
-                          style={{ width: "100%", padding: "8px", borderRadius: 8, background: "var(--green)", color: "#000", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                          Move Funds <ArrowRight size={13} />
+                          onClick={() => { const pos = positions.find(p => p.asset === o.asset); if (pos) setMoveFundsTarget(pos) }}
+                          style={{ width: "100%", padding: "7px", borderRadius: 8, background: "var(--green)", color: "#000", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                          Move Funds <ArrowRight size={12} />
                         </button>
                       </div>
                     ))
@@ -372,17 +343,17 @@ export default function PositionsPage() {
                 </div>
 
                 {/* Earnings projection */}
-                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 14 }}>Earnings projection</div>
+                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 14 }}>Earnings Projection</div>
                   {[
-                    { label: "Today",         value: `+$${fmt(daily24h)}` },
-                    { label: "This week",     value: `+$${fmt(daily24h * 7)}` },
-                    { label: "This month",    value: `+$${fmt(daily24h * 30)}` },
-                    { label: "Yearly (est.)", value: `+$${fmt(daily24h * 365)}` },
+                    { label: "Today",     value: `+$${fmt(daily24h)}` },
+                    { label: "This week", value: `+$${fmt(daily24h * 7)}` },
+                    { label: "This month",value: `+$${fmt(daily24h * 30)}` },
+                    { label: "Yearly",    value: `+$${fmt(daily24h * 365)}` },
                   ].map((r, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
-                      <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{r.label}</span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--green)" }}>{r.value}</span>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
+                      <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{r.label}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--green)" }}>{r.value}</span>
                     </div>
                   ))}
                 </div>
@@ -394,26 +365,30 @@ export default function PositionsPage() {
 
       {/* Move Funds Modal */}
       {moveFundsTarget && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
           onClick={() => setMoveFundsTarget(null)}>
-          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: 32, width: 420, maxWidth: "90vw" }}
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: 28, width: "100%", maxWidth: 420 }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>Move Funds</div>
-            <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 24 }}>
-              Moving {moveFundsTarget.asset} from {moveFundsTarget.protocol}
-            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>Move Funds</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>Moving {moveFundsTarget.asset} from {moveFundsTarget.protocol}</div>
             <div style={{ background: "var(--bg-elevated)", borderRadius: 12, padding: 16, marginBottom: 20, fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>
-              🚧 Cross-protocol moves coming soon — withdraw from one protocol and deposit to another in one click.
+              🚧 Cross-protocol moves coming soon
             </div>
             <button onClick={() => setMoveFundsTarget(null)}
-              style={{ width: "100%", padding: 12, borderRadius: 10, background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: 14, cursor: "pointer" }}>
+              style={{ width: "100%", padding: 12, borderRadius: 10, background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)", fontSize: 13, cursor: "pointer" }}>
               Close
             </button>
           </div>
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+       @media (min-width: 768px) {
+  .stats-grid { grid-template-columns: repeat(4, 1fr) !important; }
+  .positions-main { grid-template-columns: 1fr 320px !important; }
+}
+      `}</style>
     </div>
   )
 }
