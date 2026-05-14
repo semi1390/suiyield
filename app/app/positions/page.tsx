@@ -10,12 +10,21 @@ const PROTOCOL_COLORS: Record<string, string> = {
   "Navi Protocol": "#1A4FE0",
   "Scallop": "#8B5CF6",
   "Suilend": "#EC4899",
+  "Cetus": "#06B6D4",
 }
 
 const PROTOCOL_INITIALS: Record<string, string> = {
   "Navi Protocol": "N",
   "Scallop": "Sc",
   "Suilend": "Sl",
+  "Cetus": "C",
+}
+
+const PROTOCOL_TYPE: Record<string, string> = {
+  "Navi Protocol": "Lending",
+  "Scallop": "Lending",
+  "Suilend": "Lending",
+  "Cetus": "DEX LP",
 }
 
 interface LiveRate {
@@ -55,13 +64,16 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
   const [expanded, setExpanded] = useState(true)
   const color = positions[0]?.color ?? PROTOCOL_COLORS[protocol] ?? "#4B5563"
   const initials = positions[0]?.initials ?? PROTOCOL_INITIALS[protocol] ?? "?"
+  const isCetus = protocol === "Cetus"
+  const typeLabel = PROTOCOL_TYPE[protocol] ?? "Lending"
+
   const totalValue = positions.reduce((s, p) => s + p.valueUsd, 0)
-  const avgApy = positions.reduce((s, p) => s + p.apy, 0) / positions.length
+  const avgApy = isCetus ? 0 : positions.reduce((s, p) => s + p.apy, 0) / positions.length
   const daily24h = positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
 
   return (
     <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
-      {/* Protocol header */}
+      {/* Header */}
       <div
         onClick={() => setExpanded(e => !e)}
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", cursor: "pointer", borderBottom: expanded ? "1px solid var(--border)" : "none", flexWrap: "wrap", gap: 8 }}
@@ -75,68 +87,122 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{protocol}</span>
-              <span style={{ fontSize: 9, background: "rgba(75,139,255,0.12)", color: "#4B8BFF", borderRadius: 4, padding: "2px 6px", fontWeight: 600 }}>Lending</span>
+              <span style={{ fontSize: 9, background: "rgba(75,139,255,0.12)", color: "#4B8BFF", borderRadius: 4, padding: "2px 6px", fontWeight: 600 }}>{typeLabel}</span>
             </div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{positions.length} position{positions.length > 1 ? "s" : ""}</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Net Value</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>${fmt(totalValue)}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>APY</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>{avgApy.toFixed(2)}%</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>24h</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>+${fmt(daily24h)}</div>
-          </div>
+          {totalValue > 0 && (
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Net Value</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>${fmt(totalValue)}</div>
+            </div>
+          )}
+          {!isCetus && (
+            <>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>APY</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>{avgApy.toFixed(2)}%</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>24h</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>+${fmt(daily24h)}</div>
+              </div>
+            </>
+          )}
+          {isCetus && (
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Yield</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#06B6D4" }}>Fee-based</div>
+            </div>
+          )}
           {expanded ? <ChevronUp size={15} color="var(--text-muted)" /> : <ChevronDown size={15} color="var(--text-muted)" />}
         </div>
       </div>
 
-      {/* Positions table — scrollable on mobile */}
+      {/* Table — scrollable */}
       {expanded && (
-       <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-  <div style={{ minWidth: 340 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", padding: "8px 16px", borderBottom: "1px solid var(--border)" }}>
-              {["Asset", "Balance", "Net Value", "APY", "24h"].map((h, i) => (
-                <div key={i} style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
-              ))}
-            </div>
-            {positions.map((p, i) => {
-              const daily = (p.valueUsd * p.apy) / 100 / 365
-              return (
-                <div key={i}
-                  style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr 0.6fr 0.6fr", padding: "12px 16px", borderTop: i > 0 ? "1px solid var(--border)" : "none", alignItems: "center", transition: "background 0.15s" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--bg-elevated)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "var(--text-secondary)", flexShrink: 0 }}>
-                      {p.asset.slice(0, 2)}
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
+          {isCetus ? (
+            // Cetus — special layout showing two tokens + in/out of range
+            <div style={{ minWidth: 340 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 0.8fr", padding: "8px 16px", borderBottom: "1px solid var(--border)" }}>
+                {["Pool", "Token A", "Token B", "Status"].map((h, i) => (
+                  <div key={i} style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
+                ))}
+              </div>
+              {positions.map((p, i) => {
+                const cp = p as any
+                return (
+                  <div key={i}
+                    style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 0.8fr", padding: "12px 16px", borderTop: i > 0 ? "1px solid var(--border)" : "none", alignItems: "center", transition: "background 0.15s" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    {/* Pool name */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#06B6D422", border: "1px solid #06B6D444", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#06B6D4", flexShrink: 0 }}>C</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.asset}</div>
                     </div>
+                    {/* Token A */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{p.asset}</div>
-                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Lent</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{cp.amountA?.toFixed(4) ?? "—"}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{cp.symbolA ?? ""}</div>
+                    </div>
+                    {/* Token B */}
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{cp.amountB?.toFixed(4) ?? "—"}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{cp.symbolB ?? ""}</div>
+                    </div>
+                    {/* In range */}
+                    <div style={{ fontSize: 11, fontWeight: 600, color: cp.inRange ? "var(--green)" : "#EF4444" }}>
+                      {cp.inRange ? "In range" : "Out"}
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                    {p.supplyBalance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                )
+              })}
+            </div>
+          ) : (
+            // Navi / Scallop — standard lending layout
+            <div style={{ minWidth: 340 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr 0.6fr 0.6fr", padding: "8px 16px", borderBottom: "1px solid var(--border)" }}>
+                {["Asset", "Balance", "Value", "APY", "24h"].map((h, i) => (
+                  <div key={i} style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
+                ))}
+              </div>
+              {positions.map((p, i) => {
+                const daily = (p.valueUsd * p.apy) / 100 / 365
+                return (
+                  <div key={i}
+                    style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr 0.6fr 0.6fr", padding: "12px 16px", borderTop: i > 0 ? "1px solid var(--border)" : "none", alignItems: "center", transition: "background 0.15s" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--bg-elevated)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "var(--text-secondary)", flexShrink: 0 }}>
+                        {p.asset.slice(0, 2)}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{p.asset}</div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Lent</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                      {p.supplyBalance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>${fmt(p.valueUsd)}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: p.apy > 0 ? "var(--green)" : "var(--text-muted)" }}>
+                      {p.apy > 0 ? `${p.apy.toFixed(2)}%` : "—"}
+                    </div>
+                    <div style={{ fontSize: 12, color: daily > 0 ? "var(--green)" : "var(--text-muted)" }}>
+                      {daily > 0 ? `+$${fmt(daily)}` : "—"}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>${fmt(p.valueUsd)}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: p.apy > 0 ? "var(--green)" : "var(--text-muted)" }}>
-                    {p.apy > 0 ? `${p.apy.toFixed(2)}%` : "—"}
-                  </div>
-                  <div style={{ fontSize: 12, color: daily > 0 ? "var(--green)" : "var(--text-muted)" }}>
-                    {daily > 0 ? `+$${fmt(daily)}` : "—"}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -181,20 +247,22 @@ export default function PositionsPage() {
 
   const total = positions.reduce((s, p) => s + p.valueUsd, 0)
   const totalEarnings = positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100, 0)
-  const avgApy = positions.length > 0 ? positions.reduce((s, p) => s + p.apy, 0) / positions.length : 0
+  const avgApy = positions.filter(p => p.protocol !== "Cetus").length > 0
+    ? positions.filter(p => p.protocol !== "Cetus").reduce((s, p) => s + p.apy, 0) / positions.filter(p => p.protocol !== "Cetus").length
+    : 0
   const daily24h = positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
   const secAgo = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 1000) : 0
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const filteredPositions = activeTab === "all" ? positions :
-    activeTab === "lending" ? positions.filter(p => !p.asset.includes("/")) :
-    activeTab === "dex" ? positions.filter(p => p.asset.includes("/")) :
+    activeTab === "lending" ? positions.filter(p => p.protocol !== "Cetus" && !["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s))) :
+    activeTab === "dex" ? positions.filter(p => p.protocol === "Cetus") :
     positions.filter(p => ["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s)))
 
   const grouped = groupByProtocol(filteredPositions)
 
   const opportunities: Opportunity[] = []
-  for (const pos of positions) {
+  for (const pos of positions.filter(p => p.protocol !== "Cetus")) {
     const assetUpper = pos.asset.toUpperCase()
     const currentProtocol = pos.protocol.toLowerCase().includes("navi") ? "navi" : "scallop"
     const bestOther = liveRates
@@ -212,6 +280,8 @@ export default function PositionsPage() {
       extra,
     })
   }
+
+  const protocolCount = new Set(positions.map(p => p.protocol)).size
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
@@ -231,7 +301,7 @@ export default function PositionsPage() {
             </div>
             <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
               {source === "live"
-                ? `Updated ${secAgo}s ago · Navi + Scallop`
+                ? `Updated ${secAgo}s ago · Navi · Scallop · Cetus`
                 : "Track your DeFi positions across Sui"}
             </p>
           </div>
@@ -249,31 +319,33 @@ export default function PositionsPage() {
               <Wallet size={22} style={{ color: "var(--text-muted)" }} />
             </div>
             <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Connect your wallet</div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320, margin: "0 auto" }}>Connect your Sui wallet to see your real on-chain positions on Navi and Scallop.</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320, margin: "0 auto" }}>
+              Connect your Sui wallet to see your real on-chain positions on Navi, Scallop and Cetus.
+            </div>
           </div>
 
         ) : loading ? (
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 20px", textAlign: "center" }}>
             <Loader2 size={26} style={{ color: "var(--green)", animation: "spin 1s linear infinite", margin: "0 auto 14px", display: "block" }} />
             <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", marginBottom: 6 }}>Reading your on-chain positions...</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Checking Navi Protocol and Scallop</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Checking Navi · Scallop · Cetus</div>
           </div>
 
         ) : source === "empty" ? (
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>No positions found</div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>No active supply positions on Navi or Scallop.</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>No active positions on Navi, Scallop or Cetus.</div>
           </div>
 
         ) : (
           <>
-            {/* Stats — 2 cols on mobile, 4 on desktop */}
+            {/* Stats */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 20 }} className="stats-grid">
               {[
-                { icon: DollarSign, label: "Net Value",    value: `$${fmt(total)}`,          sub: `${positions.length} positions` },
-                { icon: TrendingUp, label: "Yearly Est.",  value: `$${fmt(totalEarnings)}`,  sub: "at current APY" },
-                { icon: Activity,   label: "Avg APY",      value: `${avgApy.toFixed(2)}%`,   sub: "weighted average" },
-                { icon: Activity,   label: "24h Earnings", value: `+$${fmt(daily24h)}`,      sub: "at current rates" },
+                { icon: DollarSign, label: "Net Value",    value: `$${fmt(total)}`,         sub: `${positions.length} positions · ${protocolCount} protocols` },
+                { icon: TrendingUp, label: "Yearly Est.",  value: `$${fmt(totalEarnings)}`, sub: "at current APY" },
+                { icon: Activity,   label: "Avg APY",      value: `${avgApy.toFixed(2)}%`,  sub: "lending positions" },
+                { icon: Activity,   label: "24h Earnings", value: `+$${fmt(daily24h)}`,     sub: "at current rates" },
               ].map((s, i) => (
                 <div key={i} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -296,10 +368,9 @@ export default function PositionsPage() {
               ))}
             </div>
 
-            {/* Main — stacks on mobile */}
+            {/* Main grid */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }} className="positions-main">
 
-              {/* Protocol groups */}
               <div>
                 {Object.entries(grouped).length === 0 ? (
                   <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "40px 20px", textAlign: "center" }}>
@@ -312,8 +383,9 @@ export default function PositionsPage() {
                 )}
               </div>
 
-              {/* Sidebar — opportunities + projection */}
+              {/* Sidebar */}
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
                 {/* Opportunities */}
                 <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Top Opportunities</div>
@@ -346,10 +418,10 @@ export default function PositionsPage() {
                 <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 14 }}>Earnings Projection</div>
                   {[
-                    { label: "Today",     value: `+$${fmt(daily24h)}` },
-                    { label: "This week", value: `+$${fmt(daily24h * 7)}` },
-                    { label: "This month",value: `+$${fmt(daily24h * 30)}` },
-                    { label: "Yearly",    value: `+$${fmt(daily24h * 365)}` },
+                    { label: "Today",      value: `+$${fmt(daily24h)}` },
+                    { label: "This week",  value: `+$${fmt(daily24h * 7)}` },
+                    { label: "This month", value: `+$${fmt(daily24h * 30)}` },
+                    { label: "Yearly",     value: `+$${fmt(daily24h * 365)}` },
                   ].map((r, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
                       <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{r.label}</span>
@@ -384,10 +456,10 @@ export default function PositionsPage() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-       @media (min-width: 768px) {
-  .stats-grid { grid-template-columns: repeat(4, 1fr) !important; }
-  .positions-main { grid-template-columns: 1fr 320px !important; }
-}
+        @media (min-width: 768px) {
+          .stats-grid { grid-template-columns: repeat(4, 1fr) !important; }
+          .positions-main { grid-template-columns: 1fr 320px !important; }
+        }
       `}</style>
     </div>
   )
