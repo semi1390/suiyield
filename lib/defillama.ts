@@ -123,10 +123,13 @@ export async function getLiveSuiYields(): Promise<YieldEntry[]> {
       "ember-protocol",
     ])
 
-    const suiPools = (data.data || []).filter((p: any) =>
-      p.chain === "Sui" && p.tvlUsd > 100000 && p.apy > 0 &&
-      !EXCLUDED_SLUGS.has((p.project || "").toLowerCase())
-    )
+   const suiPools = (data.data || []).filter((p: any) => {
+  if (p.chain === "Sui" && ["volo","aftermath","haedal","haedal-protocol","spring-sui"].includes((p.project || "").toLowerCase())) {
+    console.log("[staking debug]", p.project, "->", p.url)
+  }
+  return p.chain === "Sui" && p.tvlUsd > 100000 && p.apy > 0 &&
+    !EXCLUDED_SLUGS.has((p.project || "").toLowerCase())
+})
 
     const entries: YieldEntry[] = suiPools.map((pool: any) => {
       const projectSlug = (pool.project || "").toLowerCase()
@@ -151,7 +154,7 @@ export async function getLiveSuiYields(): Promise<YieldEntry[]> {
         tvl: Math.round(pool.tvlUsd || 0),
         risk: getRisk(pool),
         logo: meta.logo || "",
-        depositUrl: getDepositUrl(projectSlug, pool),
+        depositUrl: getDepositUrl(projectSlug, pool), 
         color: meta.color,
         initials: meta.initials,
         change24h: parseFloat((pool.apyPct1D || 0).toFixed(2)),
@@ -177,31 +180,31 @@ export async function getLiveSuiYields(): Promise<YieldEntry[]> {
 
 function getDepositUrl(slug: string, pool: any): string {
   // Always use our curated URLs first — never trust pool.url for staking/lending
-  const bySlug: Record<string, string> = {
-    "navi-lending":      "https://app.naviprotocol.io",
-    "scallop-lend":      "https://app.scallop.io",
-    "suilend":           "https://app.suilend.fi",
-    "current":           "https://app.current.finance",
-    "kai-finance":       "https://kai.finance/vaults",
-    "bucket-protocol":   "https://app.bucketprotocol.io",
-    "omnibtc":           "https://app.omnibtc.finance",
-    "alphafi":           "https://app.alphafi.xyz",
-    "cetus-clmm":        "https://app.cetus.zone/liquidity",
-    "turbos":            "https://app.turbos.finance/pools",
-    "bluefin-spot":      "https://app.bluefin.io/pools",
-    "flowx-v3":          "https://flowx.finance/liquidity",
-    "flowx-v2":          "https://flowx.finance/liquidity",
-    "flowx-finance":     "https://flowx.finance/liquidity",
-    "kriya-dex":         "https://www.kriya.finance/pools",
-    "aftermath-finance": "https://aftermath.finance/pools",
-    "steamm":            "https://app.suilend.fi/trade",
-    "full-sail":         "https://fullsail.finance/pools",
-    "deepbook":          "https://app.deepbook.tech",
-    "volo":              "https://www.volosui.com/stake",
-    "aftermath":         "https://aftermath.finance/stake",
-    "spring-sui":        "https://springsui.com/SUI-sSUI",
-    "haedal-protocol":   "https://www.haedal.xyz/stake",
-  }
+const bySlug: Record<string, string> = {
+  "navi-lending":      "https://app.naviprotocol.io",
+  "scallop-lend":      "https://app.scallop.io",
+  "suilend":           "https://app.suilend.fi",
+  "current":           "https://app.current.finance",
+  "kai-finance":       "https://kai.finance/vaults",
+  "bucket-protocol":   "https://app.bucketprotocol.io",
+  "omnibtc":           "https://app.omnibtc.finance",
+  "alphafi":           "https://app.alphafi.xyz",
+  "cetus-clmm":        "https://app.cetus.zone/pools",
+  "turbos":            "https://app.turbos.finance/pools#/pools",
+  "bluefin-spot":      "https://trade.bluefin.io/liquidity-pools",
+  "flowx-v3":          "https://flowx.finance/position",
+  "flowx-v2":          "https://flowx.finance/position",
+  "flowx-finance":     "https://flowx.finance/position",
+  "kriya-dex":         "https://www.kriya.finance/pools",
+  "aftermath-finance": "https://aftermath.finance/pools",
+  "steamm":            "https://app.suilend.fi/trade",
+  "full-sail":         "https://app.fullsail.finance/liquidity",
+  "deepbook":          "https://app.deepbook.tech",
+  "volo":              "https://www.volosui.com/stake",
+  "aftermath":         "https://aftermath.finance/staking",
+  "spring-sui":        "https://springsui.com/SUI-sSUI",
+  "haedal-protocol":   "https://www.haedal.xyz/stake",
+}
 
   if (bySlug[slug]) return bySlug[slug]
 

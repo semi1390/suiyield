@@ -20,9 +20,9 @@ export const SEED_DEX: YieldEntry[] = [
 
 export const SEED_STAKING: YieldEntry[] = [
   { id: "aftermath-afsui", protocol: "Aftermath", asset: "afSUI", type: "Liquid Staking", apy: 8.10, tvl: 140000000, risk: "low", depositUrl: "https://aftermath.finance/staking", color: "#EF4444", initials: "Af", change24h: 0.1, category: "staking" },
-  { id: "haedal-hasui", protocol: "Haedal", asset: "haSUI", type: "Liquid Staking", apy: 7.80, tvl: 95000000, risk: "low", depositUrl: "https://app.haedal.xyz", color: "#6366F1", initials: "H", change24h: 0.2, category: "staking" },
-  { id: "volo-vsui", protocol: "Volo", asset: "vSUI", type: "Liquid Staking", apy: 7.40, tvl: 62000000, risk: "low", depositUrl: "https://voloapp.io", color: "#10B981", initials: "V", change24h: -0.1, category: "staking" },
-  { id: "sui-native", protocol: "Sui Native", asset: "SUI", type: "Staking", apy: 3.20, tvl: 8200000000, risk: "low", depositUrl: "https://suiexplorer.com", color: "#4B8BFF", initials: "S", change24h: 0.0, category: "staking" },
+  { id: "haedal-hasui", protocol: "Haedal", asset: "haSUI", type: "Liquid Staking", apy: 7.80, tvl: 95000000, risk: "low", depositUrl: "https://www.haedal.xyz/stake", color: "#6366F1", initials: "H", change24h: 0.2, category: "staking" },
+  { id: "volo-vsui", protocol: "Volo", asset: "vSUI", type: "Liquid Staking", apy: 7.40, tvl: 62000000, risk: "low", depositUrl: "https://www.volosui.com/stake", color: "#10B981", initials: "V", change24h: -0.1, category: "staking" },
+  { id: "sui-native", protocol: "Sui Native", asset: "SUI", type: "Staking", apy: 3.20, tvl: 8200000000, risk: "low", depositUrl: "https://springsui.com/SUI-sSUI", color: "#4B8BFF", initials: "S", change24h: 0.0, category: "staking" },
 ]
 
 export const SEED_CEX: YieldEntry[] = [
