@@ -7,6 +7,17 @@ interface Props {
   onPositions: (positions: RealPosition[], loading: boolean) => void
 }
 
+async function fetchWithTimeout(url: string, timeoutMs = 15000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    return await res.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export default function PositionsFetcher({ walletAddress, onPositions }: Props) {
   useEffect(() => {
     if (!walletAddress) return
@@ -14,33 +25,39 @@ export default function PositionsFetcher({ walletAddress, onPositions }: Props) 
 
     async function fetchPositions() {
       try {
-        const [naviRes, scallopRes, cetusRes] = await Promise.allSettled([
-          fetch(`/api/positions/navi?address=${walletAddress}`).then(r => r.json()),
-          fetch(`/api/positions/scallop?address=${walletAddress}`).then(r => r.json()),
-          fetch(`/api/positions/cetus?wallet=${walletAddress}`).then(r => r.json()),
+        const [naviRes, scallopRes, cetusRes, haedalRes] = await Promise.allSettled([
+          fetchWithTimeout(`/api/positions/navi?address=${walletAddress}`, 15000),
+          fetchWithTimeout(`/api/positions/scallop?address=${walletAddress}`, 15000),
+          fetchWithTimeout(`/api/positions/cetus?wallet=${walletAddress}`, 20000),
+          fetchWithTimeout(`/api/positions/haedal?wallet=${walletAddress}`, 15000),
         ])
 
         const positions: RealPosition[] = []
 
         if (naviRes.status === "fulfilled" && naviRes.value?.positions) {
           positions.push(...naviRes.value.positions)
+        } else if (naviRes.status === "rejected") {
+          console.warn("[Positions] Navi failed:", naviRes.reason)
         }
+
         if (scallopRes.status === "fulfilled" && scallopRes.value?.positions) {
           positions.push(...scallopRes.value.positions)
+        } else if (scallopRes.status === "rejected") {
+          console.warn("[Positions] Scallop failed:", scallopRes.reason)
         }
+
         if (cetusRes.status === "fulfilled" && cetusRes.value?.positions) {
-          // Map Cetus positions to RealPosition shape
           for (const p of cetusRes.value.positions) {
             positions.push({
               protocol: "Cetus",
               asset: p.asset,
-              supplyBalance: p.amountA,      // primary token amount
-              valueUsd: 0,                    // we don't have USD value yet
-              apy: 0,                         // CLMM has no fixed APY
+              name: p.name,
+              supplyBalance: p.amountA ?? 0,
+              valueUsd: p.valueUsd ?? 0,
+              apy: 0,
               color: "#06B6D4",
               initials: "C",
               depositUrl: "https://app.cetus.zone/pools",
-              // Cetus-specific extras
               amountA: p.amountA,
               amountB: p.amountB,
               symbolA: p.symbolA,
@@ -48,13 +65,28 @@ export default function PositionsFetcher({ walletAddress, onPositions }: Props) 
               inRange: p.inRange,
               feeA: p.feeA,
               feeB: p.feeB,
+              priceA: p.priceA,
+              priceB: p.priceB,
               poolAddress: p.poolAddress,
               positionId: p.id,
             } as any)
           }
+        } else if (cetusRes.status === "rejected") {
+          console.warn("[Positions] Cetus failed:", cetusRes.reason)
         }
 
-        console.log("[Positions] Total found:", positions.length, { navi: naviRes.status, scallop: scallopRes.status, cetus: cetusRes.status })
+        if (haedalRes.status === "fulfilled" && haedalRes.value?.positions) {
+          positions.push(...haedalRes.value.positions)
+        } else if (haedalRes.status === "rejected") {
+          console.warn("[Positions] Haedal failed:", haedalRes.reason)
+        }
+
+        console.log("[Positions] Total found:", positions.length, {
+          navi: naviRes.status,
+          scallop: scallopRes.status,
+          cetus: cetusRes.status,
+          haedal: haedalRes.status,
+        })
         onPositions(positions, false)
       } catch (err) {
         console.error("[Positions] Error:", err)

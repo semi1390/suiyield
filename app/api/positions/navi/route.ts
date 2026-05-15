@@ -41,7 +41,10 @@ export async function GET(req: Request) {
 
       const supplyInfo = pool.supplyIncentiveApyInfo
       // Use full boosted APY (base + incentives) — matches what user sees on Navi
-      const apy = Number(supplyInfo?.apy ?? supplyInfo?.vaultApr ?? 0)
+      const rawApy = Number(supplyInfo?.apy ?? supplyInfo?.vaultApr ?? 0)
+// Navi SDK returns APY as basis points e.g. 228 = 2.28%
+     const apy = rawApy > 100 ? rawApy / 100 : rawApy
+
 
       positions.push({
         protocol: "Navi Protocol",

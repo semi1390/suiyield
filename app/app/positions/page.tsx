@@ -11,6 +11,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
   "Scallop": "#8B5CF6",
   "Suilend": "#EC4899",
   "Cetus": "#06B6D4",
+  "Haedal": "#3A9FF5",
 }
 
 const PROTOCOL_INITIALS: Record<string, string> = {
@@ -18,6 +19,7 @@ const PROTOCOL_INITIALS: Record<string, string> = {
   "Scallop": "Sc",
   "Suilend": "Sl",
   "Cetus": "C",
+  "Haedal": "H",
 }
 
 const PROTOCOL_TYPE: Record<string, string> = {
@@ -25,6 +27,7 @@ const PROTOCOL_TYPE: Record<string, string> = {
   "Scallop": "Lending",
   "Suilend": "Lending",
   "Cetus": "DEX LP",
+   "Haedal": "Staking",
 }
 
 interface LiveRate {
@@ -69,10 +72,19 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
 
   const totalValue = positions.reduce((s, p) => s + p.valueUsd, 0)
   const avgApy = isCetus ? 0 : positions.reduce((s, p) => s + p.apy, 0) / positions.length
-  const daily24h = positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
+  const daily24h = isCetus ? 0 : positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
+
+  // Cetus unclaimed fees for this group
+  const cetusFeesUsd = isCetus
+    ? positions.reduce((s, p) => {
+        const cp = p as any
+        return s + (cp.feeA ?? 0) * (cp.priceA ?? 0) + (cp.feeB ?? 0) * (cp.priceB ?? 0)
+      }, 0)
+    : 0
 
   return (
     <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
+
       {/* Header */}
       <div
         onClick={() => setExpanded(e => !e)}
@@ -92,13 +104,12 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>{positions.length} position{positions.length > 1 ? "s" : ""}</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          {totalValue > 0 && (
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Net Value</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>${fmt(totalValue)}</div>
-            </div>
-          )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Net Value</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>${fmt(totalValue)}</div>
+          </div>
           {!isCetus && (
             <>
               <div style={{ textAlign: "right" }}>
@@ -112,23 +123,30 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
             </>
           )}
           {isCetus && (
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Yield</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#06B6D4" }}>Fee-based</div>
-            </div>
+            <>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Yield</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#06B6D4" }}>Fee-based</div>
+              </div>
+              {cetusFeesUsd > 0 && (
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 1 }}>Unclaimed</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>${fmt(cetusFeesUsd)}</div>
+                </div>
+              )}
+            </>
           )}
           {expanded ? <ChevronUp size={15} color="var(--text-muted)" /> : <ChevronDown size={15} color="var(--text-muted)" />}
         </div>
       </div>
 
-      {/* Table — scrollable */}
+      {/* Table */}
       {expanded && (
         <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
           {isCetus ? (
-            // Cetus — special layout showing two tokens + in/out of range
             <div style={{ minWidth: 340 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 0.8fr", padding: "8px 16px", borderBottom: "1px solid var(--border)" }}>
-                {["Pool", "Token A", "Token B", "Status"].map((h, i) => (
+              <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.9fr 0.7fr 0.7fr", padding: "8px 16px", borderBottom: "1px solid var(--border)" }}>
+                {["Pool", "Token A", "Token B", "Value", "Status"].map((h, i) => (
                   <div key={i} style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</div>
                 ))}
               </div>
@@ -136,27 +154,32 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
                 const cp = p as any
                 return (
                   <div key={i}
-                    style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 0.8fr", padding: "12px 16px", borderTop: i > 0 ? "1px solid var(--border)" : "none", alignItems: "center", transition: "background 0.15s" }}
+                    style={{ display: "grid", gridTemplateColumns: "1.4fr 0.9fr 0.9fr 0.7fr 0.7fr", padding: "12px 16px", borderTop: i > 0 ? "1px solid var(--border)" : "none", alignItems: "center", transition: "background 0.15s" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    {/* Pool name */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#06B6D422", border: "1px solid #06B6D444", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#06B6D4", flexShrink: 0 }}>C</div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.asset}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#06B6D422", border: "1px solid #06B6D444", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#06B6D4", flexShrink: 0 }}>C</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cp.name ?? p.asset}</div>
+                        <div style={{ fontSize: 9, color: "var(--text-muted)" }}>{p.asset}</div>
+                      </div>
                     </div>
-                    {/* Token A */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{cp.amountA?.toFixed(4) ?? "—"}</div>
-                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{cp.symbolA ?? ""}</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>{cp.amountA?.toFixed(3) ?? "—"}</div>
+                      <div style={{ fontSize: 9, color: "var(--text-muted)" }}>{cp.symbolA ?? ""}</div>
                     </div>
-                    {/* Token B */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{cp.amountB?.toFixed(4) ?? "—"}</div>
-                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{cp.symbolB ?? ""}</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>{cp.amountB?.toFixed(3) ?? "—"}</div>
+                      <div style={{ fontSize: 9, color: "var(--text-muted)" }}>{cp.symbolB ?? ""}</div>
                     </div>
-                    {/* In range */}
-                    <div style={{ fontSize: 11, fontWeight: 600, color: cp.inRange ? "var(--green)" : "#EF4444" }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>
+                        {cp.valueUsd > 0 ? `$${cp.valueUsd.toFixed(2)}` : "—"}
+                      </div>
+                      <div style={{ fontSize: 9, color: "var(--text-muted)" }}>USD</div>
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: cp.inRange ? "var(--green)" : "#EF4444" }}>
                       {cp.inRange ? "In range" : "Out"}
                     </div>
                   </div>
@@ -164,7 +187,6 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
               })}
             </div>
           ) : (
-            // Navi / Scallop — standard lending layout
             <div style={{ minWidth: 340 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.9fr 0.8fr 0.6fr 0.6fr", padding: "8px 16px", borderBottom: "1px solid var(--border)" }}>
                 {["Asset", "Balance", "Value", "APY", "24h"].map((h, i) => (
@@ -245,24 +267,37 @@ export default function PositionsPage() {
     }
   }
 
+  const lendingPositions = positions.filter(p => p.protocol !== "Cetus")
+  const cetusPositions = positions.filter(p => p.protocol === "Cetus")
+
   const total = positions.reduce((s, p) => s + p.valueUsd, 0)
-  const totalEarnings = positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100, 0)
-  const avgApy = positions.filter(p => p.protocol !== "Cetus").length > 0
-    ? positions.filter(p => p.protocol !== "Cetus").reduce((s, p) => s + p.apy, 0) / positions.filter(p => p.protocol !== "Cetus").length
+  const totalEarnings = lendingPositions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100, 0)
+  const avgApy = lendingPositions.length > 0
+    ? lendingPositions.reduce((s, p) => s + p.apy, 0) / lendingPositions.length
     : 0
-  const daily24h = positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
+  const daily24h = lendingPositions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
+  const cetusUnclaimedFees = cetusPositions.reduce((s, p) => {
+    const cp = p as any
+    return s + (cp.feeA ?? 0) * (cp.priceA ?? 0) + (cp.feeB ?? 0) * (cp.priceB ?? 0)
+  }, 0)
+
   const secAgo = lastUpdated ? Math.floor((Date.now() - lastUpdated.getTime()) / 1000) : 0
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const protocolCount = new Set(positions.map(p => p.protocol)).size
 
   const filteredPositions = activeTab === "all" ? positions :
     activeTab === "lending" ? positions.filter(p => p.protocol !== "Cetus" && !["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s))) :
     activeTab === "dex" ? positions.filter(p => p.protocol === "Cetus") :
+    activeTab === "staking" ? positions.filter(p => 
+  p.protocol === "Haedal" || 
+  ["HASUI","VSUI","AFSUI","HAEDAL","STSUI","HAWAL"].some(s => p.asset.toUpperCase().includes(s))
+) :
     positions.filter(p => ["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s)))
 
   const grouped = groupByProtocol(filteredPositions)
 
   const opportunities: Opportunity[] = []
-  for (const pos of positions.filter(p => p.protocol !== "Cetus")) {
+  for (const pos of lendingPositions) {
     const assetUpper = pos.asset.toUpperCase()
     const currentProtocol = pos.protocol.toLowerCase().includes("navi") ? "navi" : "scallop"
     const bestOther = liveRates
@@ -280,8 +315,6 @@ export default function PositionsPage() {
       extra,
     })
   }
-
-  const protocolCount = new Set(positions.map(p => p.protocol)).size
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
@@ -301,7 +334,7 @@ export default function PositionsPage() {
             </div>
             <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
               {source === "live"
-                ? `Updated ${secAgo}s ago · Navi · Scallop · Cetus`
+                ? `Updated ${secAgo}s ago · Navi · Scallop · Cetus · Haedal`
                 : "Track your DeFi positions across Sui"}
             </p>
           </div>
@@ -320,7 +353,7 @@ export default function PositionsPage() {
             </div>
             <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Connect your wallet</div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320, margin: "0 auto" }}>
-              Connect your Sui wallet to see your real on-chain positions on Navi, Scallop and Cetus.
+             Connect your Sui wallet to see your real on-chain positions on Navi, Scallop, Cetus and Haedal.
             </div>
           </div>
 
@@ -328,13 +361,13 @@ export default function PositionsPage() {
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 20px", textAlign: "center" }}>
             <Loader2 size={26} style={{ color: "var(--green)", animation: "spin 1s linear infinite", margin: "0 auto 14px", display: "block" }} />
             <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", marginBottom: 6 }}>Reading your on-chain positions...</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Checking Navi · Scallop · Cetus</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Checking Navi · Scallop · Cetus · Haedal</div>
           </div>
 
         ) : source === "empty" ? (
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>No positions found</div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>No active positions on Navi, Scallop or Cetus.</div>
+           <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>No active positions on Navi, Scallop, Cetus or Haedal.</div>
           </div>
 
         ) : (
@@ -343,9 +376,9 @@ export default function PositionsPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 20 }} className="stats-grid">
               {[
                 { icon: DollarSign, label: "Net Value",    value: `$${fmt(total)}`,         sub: `${positions.length} positions · ${protocolCount} protocols` },
-                { icon: TrendingUp, label: "Yearly Est.",  value: `$${fmt(totalEarnings)}`, sub: "at current APY" },
+                { icon: TrendingUp, label: "Yearly Est.",  value: `$${fmt(totalEarnings)}`, sub: "lending only" },
                 { icon: Activity,   label: "Avg APY",      value: `${avgApy.toFixed(2)}%`,  sub: "lending positions" },
-                { icon: Activity,   label: "24h Earnings", value: `+$${fmt(daily24h)}`,     sub: "at current rates" },
+                { icon: Activity,   label: "24h Earnings", value: `+$${fmt(daily24h)}`,     sub: "lending only" },
               ].map((s, i) => (
                 <div key={i} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: 14 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -418,16 +451,23 @@ export default function PositionsPage() {
                 <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 14 }}>Earnings Projection</div>
                   {[
-                    { label: "Today",      value: `+$${fmt(daily24h)}` },
-                    { label: "This week",  value: `+$${fmt(daily24h * 7)}` },
-                    { label: "This month", value: `+$${fmt(daily24h * 30)}` },
-                    { label: "Yearly",     value: `+$${fmt(daily24h * 365)}` },
+                    { label: "Today",        value: `+$${fmt(daily24h)}` },
+                    { label: "This week",    value: `+$${fmt(daily24h * 7)}` },
+                    { label: "This month",   value: `+$${fmt(daily24h * 30)}` },
+                    { label: "Yearly",       value: `+$${fmt(daily24h * 365)}` },
                   ].map((r, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
                       <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{r.label}</span>
                       <span style={{ fontSize: 12, fontWeight: 600, color: "var(--green)" }}>{r.value}</span>
                     </div>
                   ))}
+                  {/* Cetus unclaimed fees */}
+                  {cetusUnclaimedFees > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                      <span style={{ fontSize: 12, color: "#06B6D4" }}>Cetus unclaimed fees</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#06B6D4" }}>${fmt(cetusUnclaimedFees)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
