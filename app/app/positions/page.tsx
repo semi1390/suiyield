@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import PositionsFetcher from "@/components/PositionsFetcher"
 import { useCurrentAccount } from "@mysten/dapp-kit"
 import Navbar from "@/components/Navbar"
@@ -27,7 +27,7 @@ const PROTOCOL_TYPE: Record<string, string> = {
   "Scallop": "Lending",
   "Suilend": "Lending",
   "Cetus": "DEX LP",
-   "Haedal": "Staking",
+  "Haedal": "Staking",
 }
 
 interface LiveRate {
@@ -74,7 +74,6 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
   const avgApy = isCetus ? 0 : positions.reduce((s, p) => s + p.apy, 0) / positions.length
   const daily24h = isCetus ? 0 : positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
 
-  // Cetus unclaimed fees for this group
   const cetusFeesUsd = isCetus
     ? positions.reduce((s, p) => {
         const cp = p as any
@@ -84,8 +83,6 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
 
   return (
     <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
-
-      {/* Header */}
       <div
         onClick={() => setExpanded(e => !e)}
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", cursor: "pointer", borderBottom: expanded ? "1px solid var(--border)" : "none", flexWrap: "wrap", gap: 8 }}
@@ -140,7 +137,6 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
         </div>
       </div>
 
-      {/* Table */}
       {expanded && (
         <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
           {isCetus ? (
@@ -207,7 +203,9 @@ function ProtocolGroup({ protocol, positions, fmt, onMoveFunds }: ProtocolGroupP
                       </div>
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{p.asset}</div>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Lent</div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                          {p.protocol === "Haedal" ? "Staking" : "Lent"}
+                        </div>
                       </div>
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
@@ -237,19 +235,14 @@ export default function PositionsPage() {
   const [loading, setLoading] = useState(false)
   const [source, setSource] = useState<"live" | "empty" | "demo">("demo")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [tick, setTick] = useState(0)
   const [activeTab, setActiveTab] = useState<"all" | "lending" | "dex" | "staking">("all")
   const [moveFundsTarget, setMoveFundsTarget] = useState<RealPosition | null>(null)
   const [liveRates, setLiveRates] = useState<LiveRate[]>([])
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     if (!account?.address) { setPositions([]); setSource("demo") }
   }, [account?.address])
-
-  useEffect(() => {
-    const t = setInterval(() => setTick(n => n + 1), 1000)
-    return () => clearInterval(t)
-  }, [])
 
   useEffect(() => {
     fetch("/api/live-rates")
@@ -257,6 +250,17 @@ export default function PositionsPage() {
       .then(data => { if (data.data?.length) setLiveRates(data.data) })
       .catch(() => {})
   }, [])
+
+  const handleRefresh = useCallback(() => {
+    if (!account?.address) return
+    // Clear sessionStorage cache so PositionsFetcher re-fetches
+    try {
+      sessionStorage.removeItem(`suiyield_positions_${account.address}`)
+    } catch {}
+    setPositions([])
+    setSource("demo")
+    setRefreshKey(k => k + 1)
+  }, [account?.address])
 
   const handlePositions = (newPositions: RealPosition[], isLoading: boolean) => {
     setLoading(isLoading)
@@ -273,8 +277,7 @@ export default function PositionsPage() {
   const total = positions.reduce((s, p) => s + p.valueUsd, 0)
   const totalEarnings = lendingPositions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100, 0)
   const avgApy = lendingPositions.length > 0
-    ? lendingPositions.reduce((s, p) => s + p.apy, 0) / lendingPositions.length
-    : 0
+    ? lendingPositions.reduce((s, p) => s + p.apy, 0) / lendingPositions.length : 0
   const daily24h = lendingPositions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
   const cetusUnclaimedFees = cetusPositions.reduce((s, p) => {
     const cp = p as any
@@ -286,18 +289,14 @@ export default function PositionsPage() {
   const protocolCount = new Set(positions.map(p => p.protocol)).size
 
   const filteredPositions = activeTab === "all" ? positions :
-    activeTab === "lending" ? positions.filter(p => p.protocol !== "Cetus" && !["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s))) :
+    activeTab === "lending" ? positions.filter(p => p.protocol !== "Cetus" && p.protocol !== "Haedal") :
     activeTab === "dex" ? positions.filter(p => p.protocol === "Cetus") :
-    activeTab === "staking" ? positions.filter(p => 
-  p.protocol === "Haedal" || 
-  ["HASUI","VSUI","AFSUI","HAEDAL","STSUI","HAWAL"].some(s => p.asset.toUpperCase().includes(s))
-) :
-    positions.filter(p => ["HASUI","VSUI","AFSUI","HAEDAL","STSUI"].some(s => p.asset.toUpperCase().includes(s)))
+    positions.filter(p => p.protocol === "Haedal" || ["HASUI","VSUI","AFSUI","HAEDAL","STSUI","HAWAL"].some(s => p.asset.toUpperCase().includes(s)))
 
   const grouped = groupByProtocol(filteredPositions)
 
   const opportunities: Opportunity[] = []
-  for (const pos of lendingPositions) {
+  for (const pos of lendingPositions.filter(p => p.protocol !== "Haedal")) {
     const assetUpper = pos.asset.toUpperCase()
     const currentProtocol = pos.protocol.toLowerCase().includes("navi") ? "navi" : "scallop"
     const bestOther = liveRates
@@ -319,7 +318,13 @@ export default function PositionsPage() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
       <Navbar />
-      {account?.address && <PositionsFetcher walletAddress={account.address} onPositions={handlePositions} />}
+      {account?.address && (
+        <PositionsFetcher
+          key={refreshKey}
+          walletAddress={account.address}
+          onPositions={handlePositions}
+        />
+      )}
 
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px" }}>
 
@@ -339,9 +344,12 @@ export default function PositionsPage() {
             </p>
           </div>
           {account && (
-            <button style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "var(--text-secondary)", cursor: "pointer", flexShrink: 0 }}>
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 14px", fontSize: 12, color: "var(--text-secondary)", cursor: loading ? "not-allowed" : "pointer", flexShrink: 0, opacity: loading ? 0.6 : 1 }}>
               <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-              Refresh
+              {loading ? "Refreshing..." : "Refresh"}
             </button>
           )}
         </div>
@@ -353,7 +361,7 @@ export default function PositionsPage() {
             </div>
             <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Connect your wallet</div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", maxWidth: 320, margin: "0 auto" }}>
-             Connect your Sui wallet to see your real on-chain positions on Navi, Scallop, Cetus and Haedal.
+              Connect your Sui wallet to see your real on-chain positions on Navi, Scallop, Cetus and Haedal.
             </div>
           </div>
 
@@ -367,12 +375,15 @@ export default function PositionsPage() {
         ) : source === "empty" ? (
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: "60px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>No positions found</div>
-           <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>No active positions on Navi, Scallop, Cetus or Haedal.</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>No active positions on Navi, Scallop, Cetus or Haedal.</div>
+            <button onClick={handleRefresh}
+              style={{ padding: "8px 20px", borderRadius: 10, background: "var(--green)", color: "#000", fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer" }}>
+              Try again
+            </button>
           </div>
 
         ) : (
           <>
-            {/* Stats */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 20 }} className="stats-grid">
               {[
                 { icon: DollarSign, label: "Net Value",    value: `$${fmt(total)}`,         sub: `${positions.length} positions · ${protocolCount} protocols` },
@@ -391,7 +402,6 @@ export default function PositionsPage() {
               ))}
             </div>
 
-            {/* Tabs */}
             <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: 4, overflowX: "auto" }}>
               {(["all", "lending", "dex", "staking"] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
@@ -401,9 +411,7 @@ export default function PositionsPage() {
               ))}
             </div>
 
-            {/* Main grid */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }} className="positions-main">
-
               <div>
                 {Object.entries(grouped).length === 0 ? (
                   <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: "40px 20px", textAlign: "center" }}>
@@ -416,10 +424,7 @@ export default function PositionsPage() {
                 )}
               </div>
 
-              {/* Sidebar */}
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-                {/* Opportunities */}
                 <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Top Opportunities</div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 14 }}>Based on your holdings + live rates</div>
@@ -447,23 +452,21 @@ export default function PositionsPage() {
                   )}
                 </div>
 
-                {/* Earnings projection */}
                 <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 14 }}>Earnings Projection</div>
                   {[
-                    { label: "Today",        value: `+$${fmt(daily24h)}` },
-                    { label: "This week",    value: `+$${fmt(daily24h * 7)}` },
-                    { label: "This month",   value: `+$${fmt(daily24h * 30)}` },
-                    { label: "Yearly",       value: `+$${fmt(daily24h * 365)}` },
+                    { label: "Today",      value: `+$${fmt(daily24h)}` },
+                    { label: "This week",  value: `+$${fmt(daily24h * 7)}` },
+                    { label: "This month", value: `+$${fmt(daily24h * 30)}` },
+                    { label: "Yearly",     value: `+$${fmt(daily24h * 365)}` },
                   ].map((r, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
                       <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{r.label}</span>
                       <span style={{ fontSize: 12, fontWeight: 600, color: "var(--green)" }}>{r.value}</span>
                     </div>
                   ))}
-                  {/* Cetus unclaimed fees */}
                   {cetusUnclaimedFees > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderTop: "1px solid var(--border)" }}>
                       <span style={{ fontSize: 12, color: "#06B6D4" }}>Cetus unclaimed fees</span>
                       <span style={{ fontSize: 12, fontWeight: 600, color: "#06B6D4" }}>${fmt(cetusUnclaimedFees)}</span>
                     </div>
@@ -475,7 +478,6 @@ export default function PositionsPage() {
         )}
       </div>
 
-      {/* Move Funds Modal */}
       {moveFundsTarget && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
           onClick={() => setMoveFundsTarget(null)}>

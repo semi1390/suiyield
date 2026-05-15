@@ -12,9 +12,16 @@ interface Props {
 }
 
 export default function PositionsPanel({ positions, connected, loading, source }: Props) {
+  const lendingPositions = positions.filter(p => p.protocol !== "Cetus")
   const total = positions.reduce((s, p) => s + p.valueUsd, 0)
-  const daily = positions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
+  const daily = lendingPositions.reduce((s, p) => s + (p.valueUsd * p.apy) / 100 / 365, 0)
   const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  const getPositionLabel = (p: RealPosition) => {
+    if (p.protocol === "Cetus") return "DEX LP · Fee-based"
+    if (p.protocol === "Haedal") return `Staking · ${p.apy.toFixed(2)}% APY`
+    return `Lending · ${p.apy.toFixed(2)}% APY`
+  }
 
   return (
     <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, padding: 16 }}>
@@ -49,8 +56,8 @@ export default function PositionsPanel({ positions, connected, loading, source }
 
       ) : positions.length === 0 ? (
         <div style={{ padding: "16px 0", textAlign: "center" }}>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>No positions found on Navi or Scallop</p>
-          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>More protocols coming soon</p>
+          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>No positions found</p>
+          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Checking Navi · Scallop · Cetus · Haedal</p>
         </div>
 
       ) : (
@@ -59,7 +66,7 @@ export default function PositionsPanel({ positions, connected, loading, source }
           {total > 0 && (
             <div style={{ background: "var(--bg-elevated)", borderRadius: 10, padding: "10px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
               <div>
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>Total deposited</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>Total value</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>${fmt(total)}</div>
               </div>
               {daily > 0 && (
@@ -84,10 +91,10 @@ export default function PositionsPanel({ positions, connected, loading, source }
                 </div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
-                    {p.asset} on {p.protocol.replace(" Protocol", "")}
+                    {p.asset} · {p.protocol.replace(" Protocol", "")}
                   </div>
                   <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                    Lending · {p.apy.toFixed(2)}% APY
+                    {getPositionLabel(p)}
                   </div>
                 </div>
               </div>
@@ -95,17 +102,22 @@ export default function PositionsPanel({ positions, connected, loading, source }
                 <div style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 600 }}>
                   ${fmt(p.valueUsd)}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--green)", fontWeight: 500 }}>
-                  {p.apy.toFixed(2)}%
+                <div style={{ fontSize: 11, color: p.protocol === "Cetus" ? "#06B6D4" : "var(--green)", fontWeight: 500 }}>
+                  {p.protocol === "Cetus" ? "Fee-based" : `${p.apy.toFixed(2)}%`}
                 </div>
               </div>
             </div>
           ))}
 
-          {/* Go to Portfolio */}
-          <Link href="/app/portfolio"
+          {positions.length > 4 && (
+            <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: "8px 0", borderTop: "1px solid var(--border)" }}>
+              +{positions.length - 4} more positions
+            </div>
+          )}
+
+          <Link href="/app/positions"
             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 12, padding: "8px 0", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--green)", textDecoration: "none", fontWeight: 500 }}>
-            Go to Portfolio <ArrowRight size={12} />
+            View all positions <ArrowRight size={12} />
           </Link>
         </>
       )}

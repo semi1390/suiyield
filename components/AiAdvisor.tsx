@@ -1,6 +1,6 @@
 "use client"
-import { useState } from "react"
-import { Sparkles, RefreshCw, TrendingUp, AlertTriangle, Zap, X, ChevronRight } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Sparkles, RefreshCw, TrendingUp, AlertTriangle, Zap, ChevronRight } from "lucide-react"
 import type { RealPosition } from "@/lib/positions"
 
 interface Insight {
@@ -36,12 +36,13 @@ interface Props {
   positions: RealPosition[]
   walletTokens: WalletToken[]
   connected: boolean
+  positionsLoading?: boolean
 }
 
 const URGENCY_COLORS = {
-  high:   { bg: "rgba(239,68,68,0.08)",   border: "rgba(239,68,68,0.2)",   text: "#EF4444" },
-  medium: { bg: "rgba(245,166,35,0.08)",  border: "rgba(245,166,35,0.2)",  text: "#F5A623" },
-  low:    { bg: "rgba(0,212,170,0.08)",   border: "rgba(0,212,170,0.2)",   text: "var(--green)" },
+  high:   { bg: "rgba(239,68,68,0.08)",  border: "rgba(239,68,68,0.2)",  text: "#EF4444" },
+  medium: { bg: "rgba(245,166,35,0.08)", border: "rgba(245,166,35,0.2)", text: "#F5A623" },
+  low:    { bg: "rgba(0,212,170,0.08)",  border: "rgba(0,212,170,0.2)",  text: "var(--green)" },
 }
 
 const TYPE_ICONS = {
@@ -53,18 +54,50 @@ const TYPE_ICONS = {
 const SCORE_COLOR = (score: number) =>
   score >= 80 ? "var(--green)" : score >= 60 ? "#F5A623" : "#EF4444"
 
-export default function AiAdvisor({ positions, walletTokens, connected }: Props) {
-  const [analysis, setAnalysis] = useState<Analysis | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [activeInsight, setActiveInsight] = useState<number | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+const CACHE_KEY = "suiyield_ai_analysis"
+const CACHE_TTL = 10 * 60 * 1000
 
-  async function runAnalysis() {
+export default function AiAdvisor({ positions, walletTokens, connected, positionsLoading }: Props) {
+  const [analysis, setAnalysis] = useState<Analysis | null>(null)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState("")
+  const [activeInsight, setActiveInsight] = useState<number>(0)
+  const [lastUpdated, setLastUpdated]     = useState<Date | null>(null)
+
+  // Load from cache on mount
+  useEffect(() => {
+    if (!connected) return
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const { analysis: a, ts } = JSON.parse(cached)
+        if (Date.now() - ts < CACHE_TTL) {
+          setAnalysis(a)
+          setLastUpdated(new Date(ts))
+          setActiveInsight(0)
+        }
+      }
+    } catch {}
+  }, [connected])
+
+  async function runAnalysis(force = false) {
+    if (!force) {
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY)
+        if (cached) {
+          const { analysis: a, ts } = JSON.parse(cached)
+          if (Date.now() - ts < CACHE_TTL) {
+            setAnalysis(a)
+            setLastUpdated(new Date(ts))
+            return
+          }
+        }
+      } catch {}
+    }
+
     setLoading(true)
     setError("")
     try {
-      // Fetch live rates for context
       const ratesRes = await fetch("/api/live-rates")
       const ratesData = await ratesRes.json()
       const rates: LiveRate[] = ratesData.data ?? []
@@ -77,7 +110,7 @@ export default function AiAdvisor({ positions, walletTokens, connected }: Props)
             protocol: p.protocol,
             asset: p.asset,
             valueUsd: p.valueUsd,
-            apy: p.apy,
+            apy: (p as any).apyDisplay ?? p.apy,
           })),
           rates: rates.map(r => ({
             protocol: r.protocol,
@@ -85,19 +118,18 @@ export default function AiAdvisor({ positions, walletTokens, connected }: Props)
             apy: r.apyBase + r.apyReward,
             tvlUsd: r.tvlUsd,
           })),
-          walletTokens: walletTokens.map(t => ({
-            symbol: t.symbol,
-            valueUsd: t.valueUsd,
-            balance: t.balance,
-          })),
+          walletTokens,
         }),
       })
 
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? "Analysis failed")
+
+      const now = Date.now()
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ analysis: data.analysis, ts: now }))
       setAnalysis(data.analysis)
-      setLastUpdated(new Date())
-      setActiveInsight(0) // show first insight by default
+      setLastUpdated(new Date(now))
+      setActiveInsight(0)
     } catch (err: any) {
       setError(err.message ?? "Analysis failed")
     } finally {
@@ -144,12 +176,17 @@ export default function AiAdvisor({ positions, walletTokens, connected }: Props)
             {error}
           </div>
         )}
-        <button
-          onClick={runAnalysis}
-          style={{ width: "100%", padding: "12px", borderRadius: 12, background: "var(--green)", color: "#000", fontSize: 14, fontWeight: 600, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <Sparkles size={14} />
-          Analyze My Portfolio
-        </button>
+        {positionsLoading ? (
+          <div style={{ width: "100%", padding: "12px", borderRadius: 12, background: "var(--bg-elevated)", border: "1px solid var(--border)", fontSize: 14, color: "var(--text-muted)", textAlign: "center" }}>
+            Loading positions first...
+          </div>
+        ) : (
+          <button onClick={() => runAnalysis(true)}
+            style={{ width: "100%", padding: "12px", borderRadius: 12, background: "var(--green)", color: "#000", fontSize: 14, fontWeight: 600, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <Sparkles size={14} />
+            Analyze My Portfolio
+          </button>
+        )}
       </div>
     )
   }
@@ -164,10 +201,7 @@ export default function AiAdvisor({ positions, walletTokens, connected }: Props)
         <div style={{ textAlign: "center", padding: "20px 0" }}>
           <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 16 }}>
             {[0, 1, 2].map(i => (
-              <div key={i} style={{
-                width: 8, height: 8, borderRadius: "50%", background: "var(--green)",
-                animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`
-              }} />
+              <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />
             ))}
           </div>
           <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", marginBottom: 6 }}>Analyzing your portfolio...</div>
@@ -180,7 +214,7 @@ export default function AiAdvisor({ positions, walletTokens, connected }: Props)
 
   if (!analysis) return null
 
-  const activeIns = activeInsight !== null ? analysis.insights[activeInsight] : null
+  const activeIns = analysis.insights[activeInsight]
 
   return (
     <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: 24 }}>
@@ -192,7 +226,7 @@ export default function AiAdvisor({ positions, walletTokens, connected }: Props)
           <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>AI Yield Advisor</span>
           <span style={{ fontSize: 9, background: "rgba(75,139,255,0.15)", color: "#4B8BFF", borderRadius: 4, padding: "2px 6px", fontWeight: 600 }}>BETA</span>
         </div>
-        <button onClick={runAnalysis} disabled={loading}
+        <button onClick={() => runAnalysis(true)} disabled={loading}
           style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "var(--text-muted)", cursor: "pointer" }}>
           <RefreshCw size={10} />
           Refresh
@@ -218,7 +252,8 @@ export default function AiAdvisor({ positions, walletTokens, connected }: Props)
             <button key={i} onClick={() => setActiveInsight(i)}
               style={{
                 display: "flex", alignItems: "center", gap: 4, padding: "5px 10px",
-                borderRadius: 8, fontSize: 11, fontWeight: 600, border: `1px solid ${activeInsight === i ? urg.border : "var(--border)"}`,
+                borderRadius: 8, fontSize: 11, fontWeight: 600,
+                border: `1px solid ${activeInsight === i ? urg.border : "var(--border)"}`,
                 background: activeInsight === i ? urg.bg : "transparent",
                 color: activeInsight === i ? urg.text : "var(--text-muted)",
                 cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
@@ -258,7 +293,6 @@ export default function AiAdvisor({ positions, walletTokens, connected }: Props)
         </a>
       )}
 
-      {/* Last updated */}
       {lastUpdated && (
         <div style={{ fontSize: 10, color: "var(--text-muted)", textAlign: "center", marginTop: 10 }}>
           Updated {Math.floor((Date.now() - lastUpdated.getTime()) / 1000)}s ago

@@ -7,6 +7,8 @@ interface Props {
   onPositions: (positions: RealPosition[], loading: boolean) => void
 }
 
+const POSITIONS_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
+
 async function fetchWithTimeout(url: string, timeoutMs = 15000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -21,6 +23,22 @@ async function fetchWithTimeout(url: string, timeoutMs = 15000) {
 export default function PositionsFetcher({ walletAddress, onPositions }: Props) {
   useEffect(() => {
     if (!walletAddress) return
+
+    const cacheKey = `suiyield_positions_${walletAddress}`
+
+    // Try cache first — show immediately without loading
+    try {
+      const cached = sessionStorage.getItem(cacheKey)
+      if (cached) {
+        const { positions, ts } = JSON.parse(cached)
+        if (Date.now() - ts < POSITIONS_CACHE_TTL) {
+          onPositions(positions, false)
+          return // use cache, skip fetch
+        }
+      }
+    } catch {}
+
+    // No cache — fetch fresh
     onPositions([], true)
 
     async function fetchPositions() {
@@ -54,7 +72,8 @@ export default function PositionsFetcher({ walletAddress, onPositions }: Props) 
               name: p.name,
               supplyBalance: p.amountA ?? 0,
               valueUsd: p.valueUsd ?? 0,
-              apy: 0,
+              apy: p.apy ?? 0,
+              apyDisplay: p.apy ?? 0,
               color: "#06B6D4",
               initials: "C",
               depositUrl: "https://app.cetus.zone/pools",
@@ -87,6 +106,12 @@ export default function PositionsFetcher({ walletAddress, onPositions }: Props) 
           cetus: cetusRes.status,
           haedal: haedalRes.status,
         })
+
+        // Save to cache
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify({ positions, ts: Date.now() }))
+        } catch {}
+
         onPositions(positions, false)
       } catch (err) {
         console.error("[Positions] Error:", err)

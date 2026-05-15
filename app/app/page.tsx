@@ -14,100 +14,71 @@ import type { LiveRate } from "@/app/api/live-rates/route"
 import AiAdvisor from "@/components/AiAdvisor"
 
 const FEATURES = [
-  { icon: RefreshCw, label: "Real-time data", desc: "Updated every 5 minutes from DeFiLlama on-chain data" },
-  { icon: Shield, label: "Non-custodial", desc: "You keep control. We never hold your funds." },
-  { icon: Zap, label: "One-click actions", desc: "Deposit or add liquidity with a single click." },
+  { icon: RefreshCw, label: "Real-time data",    desc: "Updated every 5 minutes from DeFiLlama on-chain data" },
+  { icon: Shield,    label: "Non-custodial",      desc: "You keep control. We never hold your funds." },
+  { icon: Zap,       label: "One-click actions",  desc: "Deposit or add liquidity with a single click." },
   { icon: BarChart3, label: "Best yield, always", desc: "We track every Sui protocol to find the best rates." },
 ]
 
-// Merge live rates into yield entries
-// Matches by protocol name + asset symbol
 function mergeLiveRates(yields: YieldEntry[], liveRates: LiveRate[]): YieldEntry[] {
   if (!liveRates.length) return yields
-
-  // Build lookup: "navi:USDC" -> LiveRate, "scallop:USDC" -> LiveRate
   const liveMap = new Map<string, LiveRate>()
   for (const r of liveRates) {
     liveMap.set(`${r.protocol}:${r.symbol.toUpperCase()}`, r)
     liveMap.set(`${r.protocol}:${r.pool.toUpperCase()}`, r)
   }
-
   return yields.map(y => {
     const protocolLower = y.protocol.toLowerCase()
     const assetUpper = y.asset.toUpperCase()
-
-    // Try navi / scallop match
-    const key1 = protocolLower.includes("navi") ? `navi:${assetUpper}` : null
+    const key1 = protocolLower.includes("navi")    ? `navi:${assetUpper}`    : null
     const key2 = protocolLower.includes("scallop") ? `scallop:${assetUpper}` : null
-    const key3 = protocolLower.includes("navi") ? `navi:${y.asset}` : null
-    const key4 = protocolLower.includes("scallop") ? `scallop:${y.asset}` : null
-
-    const live = (key1 && liveMap.get(key1)) ||
-                 (key2 && liveMap.get(key2)) ||
-                 (key3 && liveMap.get(key3)) ||
-                 (key4 && liveMap.get(key4)) ||
-                 null
-
+    const key3 = protocolLower.includes("navi")    ? `navi:${y.asset}`       : null
+    const key4 = protocolLower.includes("scallop") ? `scallop:${y.asset}`    : null
+    const live = (key1 && liveMap.get(key1)) || (key2 && liveMap.get(key2)) ||
+                 (key3 && liveMap.get(key3)) || (key4 && liveMap.get(key4)) || null
     if (!live) return y
-
-const totalApy = live.apyBase + live.apyReward
-
-// Don't overwrite with 0% APY — keep original DeFiLlama data
-if (totalApy === 0) return y
-
-return {
-  ...y,
-  apy: totalApy,
-  tvl: live.tvlUsd > 0 ? live.tvlUsd : y.tvl,
-  isLive: true,
-  source: live.source,
-  apyBase: live.apyBase,
-  apyReward: live.apyReward,
-}
+    const totalApy = live.apyBase + live.apyReward
+    if (totalApy === 0) return y
+    return { ...y, apy: totalApy, tvl: live.tvlUsd > 0 ? live.tvlUsd : y.tvl, isLive: true, source: live.source, apyBase: live.apyBase, apyReward: live.apyReward }
   })
 }
 
 export default function DashboardPage() {
   const account = useCurrentAccount()
-  const [lending, setLending] = useState<YieldEntry[]>(SEED_LENDING)
-  const [dex, setDex] = useState<YieldEntry[]>(SEED_DEX)
-  const [staking, setStaking] = useState<YieldEntry[]>(SEED_STAKING)
-  const [cex, setCex] = useState<YieldEntry[]>(SEED_CEX)
+  const [lending, setLending]   = useState<YieldEntry[]>(SEED_LENDING)
+  const [dex, setDex]           = useState<YieldEntry[]>(SEED_DEX)
+  const [staking, setStaking]   = useState<YieldEntry[]>(SEED_STAKING)
+  const [cex, setCex]           = useState<YieldEntry[]>(SEED_CEX)
   const [positions, setPositions] = useState<RealPosition[]>([])
+  const [positionsLoading, setPositionsLoading] = useState(false)
+  const [positionsSource, setPositionsSource]   = useState<"live" | "empty" | "demo">("demo")
   const [lastUpdated, setLastUpdated] = useState(Date.now())
-  const [loading, setLoading] = useState(false)
-  const [secAgo, setSecAgo] = useState(0)
+  const [loading, setLoading]   = useState(false)
   const [walletTokens, setWalletTokens] = useState<any[]>([])
 
   const fetchYields = useCallback(async () => {
     setLoading(true)
     try {
-      // Fetch DeFiLlama yields + live SDK rates in parallel
       const [yieldsRes, liveRes] = await Promise.allSettled([
         fetch("/api/yields").then(r => r.json()),
         fetch("/api/live-rates").then(r => r.json()),
       ])
-
       const yieldsData = yieldsRes.status === "fulfilled" ? yieldsRes.value : null
-      const liveData = liveRes.status === "fulfilled" ? liveRes.value : null
+      const liveData   = liveRes.status  === "fulfilled" ? liveRes.value   : null
       const liveRates: LiveRate[] = liveData?.data ?? []
-
       if (yieldsData?.grouped) {
         const rawLending = yieldsData.grouped.lending?.length ? yieldsData.grouped.lending : SEED_LENDING
-        const rawDex = yieldsData.grouped.dex?.length ? yieldsData.grouped.dex : SEED_DEX
+        const rawDex     = yieldsData.grouped.dex?.length     ? yieldsData.grouped.dex     : SEED_DEX
         const rawStaking = yieldsData.grouped.staking?.length ? yieldsData.grouped.staking : SEED_STAKING
-        const rawCex = yieldsData.grouped.cex?.length ? yieldsData.grouped.cex : SEED_CEX
-
-        // Merge live rates into lending rows (lending is where Navi/Scallop appear)
+        const rawCex     = yieldsData.grouped.cex?.length     ? yieldsData.grouped.cex     : SEED_CEX
         setLending(mergeLiveRates(rawLending, liveRates))
         setDex(rawDex)
         setStaking(mergeLiveRates(rawStaking, liveRates))
         setCex(rawCex)
       }
-
       setLastUpdated(Date.now())
     } catch (err) {
-      console.error("Yield fetch failed, using seed data:", err)
+      console.error("Yield fetch failed:", err)
     } finally {
       setLoading(false)
     }
@@ -119,30 +90,34 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [fetchYields])
 
-  const [positionsLoading, setPositionsLoading] = useState(false)
-  const [positionsSource, setPositionsSource] = useState<"live" | "empty" | "demo">("demo")
+  // Fetch wallet token balances for AI context
+  useEffect(() => {
+    if (!account?.address) { setWalletTokens([]); return }
+    fetch(`/api/wallet-tokens?address=${account.address}`)
+      .then(r => r.json())
+      .then(data => { if (data.tokens) setWalletTokens(data.tokens) })
+      .catch(() => {})
+  }, [account?.address])
 
-  const handlePositions = (newPositions: RealPosition[], loading: boolean) => {
-    setPositionsLoading(loading)
-    if (!loading) {
+  const handlePositions = (newPositions: RealPosition[], isLoading: boolean) => {
+    setPositionsLoading(isLoading)
+    if (!isLoading) {
       setPositions(newPositions)
       setPositionsSource(newPositions.length > 0 ? "live" : "empty")
     }
   }
 
   useEffect(() => {
-    const t = setInterval(() => setSecAgo(Math.floor((Date.now() - lastUpdated) / 1000)), 1000)
+    const t = setInterval(() => {}, 1000)
     return () => clearInterval(t)
   }, [lastUpdated])
-
-  const bestLending = [...lending].sort((a, b) => b.apy - a.apy)[0]
-  const userPos = positions[0] || null
-  const extraApy = bestLending && userPos ? Math.max(0, bestLending.apy - userPos.apy) : 0
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
       <Navbar lastUpdated={lastUpdated} />
-      {account?.address && <PositionsFetcher walletAddress={account.address} onPositions={handlePositions} />}
+      {account?.address && (
+        <PositionsFetcher walletAddress={account.address} onPositions={handlePositions} />
+      )}
 
       <div className="page-padding" style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px" }}>
 
@@ -168,13 +143,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Earn More card */}
-          {/* AI Advisor — replaces earn more card */}
-<AiAdvisor
-  positions={positions}
-  walletTokens={walletTokens}
-  connected={!!account}
-/>
+          <AiAdvisor
+            positions={positions}
+            walletTokens={walletTokens}
+            connected={!!account}
+            positionsLoading={positionsLoading}
+          />
         </div>
 
         {/* Main grid */}
@@ -195,7 +169,12 @@ export default function DashboardPage() {
           </div>
 
           <div className="dashboard-sidebar" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <PositionsPanel positions={positions} connected={!!account} loading={positionsLoading} source={positionsSource} />
+            <PositionsPanel
+              positions={positions}
+              connected={!!account}
+              loading={positionsLoading}
+              source={positionsSource}
+            />
             <AlertsFeed alerts={SEED_ALERTS} />
             <AlertsPromo />
           </div>
