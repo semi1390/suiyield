@@ -35,7 +35,7 @@ function getTokenAmounts(
   decimalsB: number
 ): { amountA: number; amountB: number } {
   try {
-   const Q64 = BigInt("18446744073709551616") // 2^64
+    const Q64 = BigInt("18446744073709551616") // 2^64
     const sqrtPriceLower = tickToSqrtPriceX64(tickLower)
     const sqrtPriceUpper = tickToSqrtPriceX64(tickUpper)
     const sqrtPrice = sqrtPriceX64
@@ -148,26 +148,26 @@ export async function GET(req: NextRequest) {
     if (cetusIds.length === 0) return NextResponse.json({ positions: [] })
 
     // Step 2 — fetch position content
-    const fullObjects = await client.multiGetObjects({ ids: cetusIds, options: { showContent: true } })
+    const fullObjects: any[] = await client.multiGetObjects({ ids: cetusIds, options: { showContent: true } })
 
     // Step 3 — collect pool addresses
-  const poolAddresses = Array.from(new Set(
-  fullObjects.map((obj: any) => obj.data?.content?.fields?.pool).filter(Boolean)
-)) as string[]
+    const poolAddresses = Array.from(new Set(
+      fullObjects.map((obj: any) => (obj.data?.content as any)?.fields?.pool).filter(Boolean)
+    )) as string[]
 
     // Step 4 — fetch pool data
-    const poolObjects = await client.multiGetObjects({ ids: poolAddresses, options: { showContent: true } })
+    const poolObjects: any[] = await client.multiGetObjects({ ids: poolAddresses, options: { showContent: true } })
     const poolMap: Record<string, any> = {}
     for (const pool of poolObjects) {
       const id = pool.data?.objectId
-      const fields = pool.data?.content?.fields ?? {}
+      const fields = (pool.data?.content as any)?.fields ?? {}
       if (id) poolMap[id] = fields
     }
 
     // Step 5 — extract symbols
     const symbolsNeeded = new Set<string>()
     const rawPositions = fullObjects.map((obj: any) => {
-      const fields = obj.data?.content?.fields ?? {}
+      const fields = (obj.data?.content as any)?.fields ?? {}
       const symbolA = fields.coin_type_a?.fields?.name?.split("::")?.pop()?.toUpperCase() ?? "?"
       const symbolB = fields.coin_type_b?.fields?.name?.split("::")?.pop()?.toUpperCase() ?? "?"
       symbolsNeeded.add(symbolA)
@@ -177,14 +177,14 @@ export async function GET(req: NextRequest) {
 
     // Step 6 — fetch prices + warm APY cache
     const priceMap: Record<string, number> = {}
- await Promise.all([
-  ...Array.from(symbolsNeeded).map(async sym => { priceMap[sym] = await getTokenPriceUsd(sym) }),
-  getCetusLlamaPools(),
-])
+    await Promise.all([
+      ...Array.from(symbolsNeeded).map(async (sym: string) => { priceMap[sym] = await getTokenPriceUsd(sym) }),
+      getCetusLlamaPools(),
+    ])
 
     // Step 7 — build positions
     const positions = await Promise.all(
-      rawPositions.map(async ({ obj, fields, symbolA, symbolB }) => {
+      rawPositions.map(async ({ obj, fields, symbolA, symbolB }: any) => {
         try {
           const liquidity = BigInt(fields.liquidity ?? 0)
           const tickLower = Number(fields.tick_lower_index?.fields?.bits ?? 0)
@@ -213,7 +213,7 @@ export async function GET(req: NextRequest) {
             protocol: "Cetus",
             type: "DEX LP",
             asset: `${symbolA}-${symbolB}`,
-            name: fields.name ?? `${symbolA}-${symbolB}`,
+            name: (obj.data?.content as any)?.fields?.name ?? `${symbolA}-${symbolB}`,
             symbolA,
             symbolB,
             amountA,
@@ -224,8 +224,8 @@ export async function GET(req: NextRequest) {
             inRange,
             feeA: feeOwedA,
             feeB: feeOwedB,
-            priceA,   // ← added
-            priceB,   // ← added
+            priceA,
+            priceB,
             tickLower,
             tickUpper,
             poolAddress,
