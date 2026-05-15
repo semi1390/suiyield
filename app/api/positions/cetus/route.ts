@@ -35,7 +35,7 @@ function getTokenAmounts(
   decimalsB: number
 ): { amountA: number; amountB: number } {
   try {
-    const Q64 = BigInt(2) ** BigInt(64)
+   const Q64 = BigInt("18446744073709551616") // 2^64
     const sqrtPriceLower = tickToSqrtPriceX64(tickLower)
     const sqrtPriceUpper = tickToSqrtPriceX64(tickUpper)
     const sqrtPrice = sqrtPriceX64
