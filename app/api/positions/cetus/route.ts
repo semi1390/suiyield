@@ -151,9 +151,9 @@ export async function GET(req: NextRequest) {
     const fullObjects = await client.multiGetObjects({ ids: cetusIds, options: { showContent: true } })
 
     // Step 3 — collect pool addresses
-    const poolAddresses = [...new Set(
-      fullObjects.map((obj: any) => obj.data?.content?.fields?.pool).filter(Boolean)
-    )] as string[]
+  const poolAddresses = Array.from(new Set(
+  fullObjects.map((obj: any) => obj.data?.content?.fields?.pool).filter(Boolean)
+)) as string[]
 
     // Step 4 — fetch pool data
     const poolObjects = await client.multiGetObjects({ ids: poolAddresses, options: { showContent: true } })
@@ -177,10 +177,10 @@ export async function GET(req: NextRequest) {
 
     // Step 6 — fetch prices + warm APY cache
     const priceMap: Record<string, number> = {}
-    await Promise.all([
-      ...[...symbolsNeeded].map(async sym => { priceMap[sym] = await getTokenPriceUsd(sym) }),
-      getCetusLlamaPools(),
-    ])
+ await Promise.all([
+  ...Array.from(symbolsNeeded).map(async sym => { priceMap[sym] = await getTokenPriceUsd(sym) }),
+  getCetusLlamaPools(),
+])
 
     // Step 7 — build positions
     const positions = await Promise.all(
