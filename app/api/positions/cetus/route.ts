@@ -1,64 +1,95 @@
 import { NextRequest, NextResponse } from "next/server"
-import { initCetusSDK } from "@cetusprotocol/cetus-sui-clmm-sdk"
+import { SuiClient } from "@mysten/sui/client"
 
-const cetusSDK = initCetusSDK({
-  network: "mainnet",
-  fullNodeUrl: "https://fullnode.mainnet.sui.io",
-  simulationAccount: "0x0000000000000000000000000000000000000000000000000000000000000000",
-})
+const client = new SuiClient({ url: "https://fullnode.mainnet.sui.io" })
+
+const CETUS_POSITION_TYPE = "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::position::Position"
 
 export async function GET(req: NextRequest) {
-  const wallet = req.nextUrl.searchParams.get("wallet")
-  if (!wallet) return NextResponse.json({ error: "wallet required" }, { status: 400 })
+  const raw = req.nextUrl.searchParams.get("wallet")
+  if (!raw) return NextResponse.json({ error: "wallet required" }, { status: 400 })
+
+  const wallet = raw.startsWith("0x") ? raw : `0x${raw}`
 
   try {
-    const positions = await cetusSDK.Position.getPositionList(wallet, [], false)
+    // Step 1 — get all objects, filter manually (same as debug that worked)
+    let allData: any[] = []
+    let cursor: string | null | undefined = undefined
 
-    if (!positions || positions.length === 0) {
+    do {
+      const res: any = await client.getOwnedObjects({
+        owner: wallet,
+        options: { showType: true },
+        cursor,
+        limit: 50,
+      })
+      allData = [...allData, ...(res.data ?? [])]
+      cursor = res.hasNextPage ? res.nextCursor : null
+    } while (cursor)
+
+    const cetusIds = allData
+      .filter((obj: any) => obj.data?.type === CETUS_POSITION_TYPE)
+      .map((obj: any) => obj.data?.objectId)
+      .filter(Boolean)
+
+    if (cetusIds.length === 0) {
       return NextResponse.json({ positions: [] })
     }
 
-    const results = await Promise.allSettled(
-      positions.map(async (pos: any) => {
+    // Step 2 — fetch full content for each position
+    const fullObjects = await client.multiGetObjects({
+      ids: cetusIds,
+      options: { showContent: true },
+    })
+
+    const positions = fullObjects
+      .map((obj: any) => {
         try {
-          const pool = await cetusSDK.Pool.getPool(pos.pool)
+          const content = obj.data?.content
+          if (!content || content.dataType !== "moveObject") return null
 
-          const symbolA = pool.coinTypeA.split("::").pop() ?? "?"
-          const symbolB = pool.coinTypeB.split("::").pop() ?? "?"
+          const fields = content.fields ?? {}
 
-          const liquidity = BigInt(pos.liquidity ?? 0)
-          const inRange = pos.current_tick_index !== undefined
-            ? pos.tick_lower_index <= pos.current_tick_index && pos.current_tick_index <= pos.tick_upper_index
-            : true
+          // coin_type_a/b are nested: { type: "...", fields: { name: "xxx::usdc::USDC" } }
+          const coinTypeA = fields.coin_type_a?.fields?.name ?? ""
+          const coinTypeB = fields.coin_type_b?.fields?.name ?? ""
+          const symbolA = coinTypeA.split("::").pop()?.toUpperCase() ?? "?"
+          const symbolB = coinTypeB.split("::").pop()?.toUpperCase() ?? "?"
 
-          const amountA = Number(pos.coin_amount_a ?? 0)
-          const amountB = Number(pos.coin_amount_b ?? 0)
+          const liquidity = fields.liquidity ?? "0"
+
+          // tick indexes are nested: { fields: { bits: number } }
+          const tickLower = Number(fields.tick_lower_index?.fields?.bits ?? 0)
+          const tickUpper = Number(fields.tick_upper_index?.fields?.bits ?? 0)
+
+          // No current_tick_index on position — use liquidity > 0 as proxy for in-range
+          const inRange = Number(liquidity) > 0
 
           const decimalsA = symbolA.includes("BTC") ? 8 : 6
           const decimalsB = symbolB.includes("BTC") ? 8 : 6
 
-          const amountAHuman = amountA / Math.pow(10, decimalsA)
-          const amountBHuman = amountB / Math.pow(10, decimalsB)
+          const feeOwedA = Number(fields.fee_owed_a ?? 0) / Math.pow(10, decimalsA)
+          const feeOwedB = Number(fields.fee_owed_b ?? 0) / Math.pow(10, decimalsB)
 
-          const feeA = Number(pos.fee_amount_a ?? 0) / Math.pow(10, decimalsA)
-          const feeB = Number(pos.fee_amount_b ?? 0) / Math.pow(10, decimalsB)
+          const name = fields.name ?? `${symbolA}-${symbolB}`
 
           return {
-            id: pos.pos_object_id,
+            id: obj.data?.objectId,
             protocol: "Cetus",
             type: "DEX LP",
             asset: `${symbolA}-${symbolB}`,
+            name,
             symbolA,
             symbolB,
-            amountA: amountAHuman,
-            amountB: amountBHuman,
-            liquidity: liquidity.toString(),
+            amountA: 0,
+            amountB: 0,
+            liquidity,
             inRange,
-            feeA,
-            feeB,
-            tickLower: pos.tick_lower_index,
-            tickUpper: pos.tick_upper_index,
-            poolAddress: pos.pool,
+            feeA: feeOwedA,
+            feeB: feeOwedB,
+            tickLower,
+            tickUpper,
+            poolAddress: fields.pool ?? "",
             color: "#06B6D4",
             initials: "C",
           }
@@ -66,13 +97,9 @@ export async function GET(req: NextRequest) {
           return null
         }
       })
-    )
+      .filter(Boolean)
 
-    const cleaned = results
-      .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled" && r.value !== null)
-      .map(r => r.value)
-
-    return NextResponse.json({ positions: cleaned })
+    return NextResponse.json({ positions })
   } catch (err: any) {
     console.error("[Cetus positions]", err)
     return NextResponse.json({ error: err.message }, { status: 500 })
