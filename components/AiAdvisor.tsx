@@ -118,7 +118,7 @@ export default function AiAdvisor({ positions, walletTokens, connected, position
             apy: r.apyBase + r.apyReward,
             tvlUsd: r.tvlUsd,
           })),
-          walletTokens,
+          walletTokens: walletTokens.filter((t: any) => t.valueUsd >= 0.5),
         }),
       })
 
@@ -139,7 +139,7 @@ export default function AiAdvisor({ positions, walletTokens, connected, position
 
   if (!connected) {
     return (
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: 24 }}>
+      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 20, padding: 24, overflow: "hidden", maxWidth: "100%", boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
           <Sparkles size={16} style={{ color: "var(--green)" }} />
           <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>AI Yield Advisor</span>
@@ -232,19 +232,19 @@ export default function AiAdvisor({ positions, walletTokens, connected, position
           Refresh
         </button>
       </div>
-
+<div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--bg-elevated)", borderRadius: 12, padding: "12px 16px", marginBottom: 16, minWidth: 0, overflow: "hidden" }}>
       {/* Score */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--bg-elevated)", borderRadius: 12, padding: "12px 16px", marginBottom: 16 }}>
+      
         <div style={{ textAlign: "center", flexShrink: 0 }}>
           <div style={{ fontSize: 28, fontWeight: 800, color: SCORE_COLOR(analysis.score), lineHeight: 1 }}>{analysis.score}</div>
           <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>{analysis.scoreLabel}</div>
         </div>
         <div style={{ width: 1, height: 36, background: "var(--border)" }} />
-        <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>{analysis.summary}</div>
+        <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, overflow: "hidden", wordBreak: "break-word" }}>{analysis.summary}</div>
       </div>
 
       {/* Insight tabs */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, overflowX: "auto", WebkitOverflowScrolling: "touch" as any, maxWidth: "100%" }}>
         {analysis.insights.map((ins, i) => {
           const Icon = TYPE_ICONS[ins.type]
           const urg = URGENCY_COLORS[ins.urgency]
@@ -275,9 +275,9 @@ export default function AiAdvisor({ positions, walletTokens, connected, position
               <Icon size={14} style={{ color: urg.text, flexShrink: 0, marginTop: 1 }} />
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{activeIns.title}</div>
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: activeIns.metric ? 10 : 0 }}>
-              {activeIns.body}
-            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: activeIns.metric ? 10 : 0, wordBreak: "break-word", overflow: "hidden" }}>
+  {activeIns.body}
+</div>
             {activeIns.metric && (
               <div style={{ fontSize: 14, fontWeight: 700, color: urg.text }}>{activeIns.metric}</div>
             )}

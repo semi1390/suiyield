@@ -49,15 +49,13 @@ export default function DashboardPage() {
   const [dex, setDex]           = useState<YieldEntry[]>(SEED_DEX)
   const [staking, setStaking]   = useState<YieldEntry[]>(SEED_STAKING)
   const [cex, setCex]           = useState<YieldEntry[]>(SEED_CEX)
-  const [positions, setPositions] = useState<RealPosition[]>([])
+  const [positions, setPositions]             = useState<RealPosition[]>([])
   const [positionsLoading, setPositionsLoading] = useState(false)
   const [positionsSource, setPositionsSource]   = useState<"live" | "empty" | "demo">("demo")
   const [lastUpdated, setLastUpdated] = useState(Date.now())
-  const [loading, setLoading]   = useState(false)
   const [walletTokens, setWalletTokens] = useState<any[]>([])
 
   const fetchYields = useCallback(async () => {
-    setLoading(true)
     try {
       const [yieldsRes, liveRes] = await Promise.allSettled([
         fetch("/api/yields").then(r => r.json()),
@@ -79,8 +77,6 @@ export default function DashboardPage() {
       setLastUpdated(Date.now())
     } catch (err) {
       console.error("Yield fetch failed:", err)
-    } finally {
-      setLoading(false)
     }
   }, [])
 
@@ -90,7 +86,6 @@ export default function DashboardPage() {
     return () => clearInterval(interval)
   }, [fetchYields])
 
-  // Fetch wallet token balances for AI context
   useEffect(() => {
     if (!account?.address) { setWalletTokens([]); return }
     fetch(`/api/wallet-tokens?address=${account.address}`)
@@ -107,11 +102,6 @@ export default function DashboardPage() {
     }
   }
 
-  useEffect(() => {
-    const t = setInterval(() => {}, 1000)
-    return () => clearInterval(t)
-  }, [lastUpdated])
-
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
       <Navbar lastUpdated={lastUpdated} />
@@ -119,9 +109,9 @@ export default function DashboardPage() {
         <PositionsFetcher walletAddress={account.address} onPositions={handlePositions} />
       )}
 
-      <div className="page-padding" style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px" }}>
 
-        {/* Hero */}
+        {/* Hero — stacks on mobile */}
         <div className="dashboard-hero" style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 20, marginBottom: 20 }}>
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--green-bg)", border: "1px solid var(--green-border)", borderRadius: 20, padding: "4px 12px", marginBottom: 20 }}>
@@ -136,28 +126,29 @@ export default function DashboardPage() {
             <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 28, maxWidth: 480 }}>
               Compare lending, DEX pools, staking and CEX yields in one place and put your money where it earns more.
             </p>
-            <div style={{ display: "flex", gap: 12 }}>
-              <a href="#table" style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--green)", color: "#000", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-                View opportunities →
-              </a>
-            </div>
+            <a href="#table" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--green)", color: "#000", borderRadius: 10, padding: "11px 20px", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+              View opportunities →
+            </a>
           </div>
 
-          <AiAdvisor
-            positions={positions}
-            walletTokens={walletTokens}
-            connected={!!account}
-            positionsLoading={positionsLoading}
-          />
+         <div style={{ minWidth: 0, overflow: "hidden" }}>
+  <AiAdvisor
+    positions={positions}
+    walletTokens={walletTokens}
+    connected={!!account}
+    positionsLoading={positionsLoading}
+  />
+</div>
         </div>
 
-        {/* Main grid */}
-        <div id="table" className="dashboard-main" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, minWidth: 0 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Main grid — stacks on mobile */}
+        <div id="table" className="dashboard-main" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
             <YieldTable lending={lending} dex={dex} staking={staking} cex={cex} lastUpdated={lastUpdated} />
             <div className="features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
               {FEATURES.map((f, i) => (
-                <div key={i} style={{ padding: "20px 18px", borderRight: i < 3 ? "1px solid var(--border)" : "none" }}>
+                <div key={i} style={{ padding: "20px 18px", borderRight: i < 3 ? "1px solid var(--border)" : "none" }}
+                className={i < 2 ? "features-grid-item-top" : ""}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--green-bg)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
                     <f.icon size={15} style={{ color: "var(--green)" }} />
                   </div>
@@ -180,6 +171,33 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <style suppressHydrationWarning>{`
+        @media (max-width: 768px) {
+          .dashboard-hero {
+            grid-template-columns: 1fr !important;
+          }
+          .hero-title {
+            font-size: 32px !important;
+          }
+          .dashboard-main {
+            grid-template-columns: 1fr !important;
+          }
+          .dashboard-sidebar {
+            display: none !important;
+          }
+          .features-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          .features-grid > div:nth-child(2) {
+            border-right: none !important;
+          }
+          .features-grid > div:nth-child(1),
+          .features-grid > div:nth-child(2) {
+            border-bottom: 1px solid var(--border);
+          }
+        }
+      `}</style>
     </div>
   )
 }
