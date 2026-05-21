@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { SuiClient } from "@mysten/sui/client"
+export const maxDuration = 30
 
 const client = new SuiClient({ url: "https://fullnode.mainnet.sui.io" })
 

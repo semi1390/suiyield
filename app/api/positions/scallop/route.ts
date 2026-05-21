@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+export const maxDuration = 30
+
 
 const SCALLOP_META = { color: "#8B5CF6", initials: "Sc", depositUrl: "https://app.scallop.io" }
 

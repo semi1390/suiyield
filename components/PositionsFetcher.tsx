@@ -9,12 +9,16 @@ interface Props {
 
 const POSITIONS_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
 
-async function fetchWithTimeout(url: string, timeoutMs = 15000) {
+async function fetchWithTimeout(url: string, timeoutMs = 30000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const res = await fetch(url, { signal: controller.signal })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return await res.json()
+  } catch (err: any) {
+    if (err.name === "AbortError") throw new Error(`Timeout after ${timeoutMs}ms`)
+    throw err
   } finally {
     clearTimeout(timer)
   }
@@ -43,12 +47,12 @@ export default function PositionsFetcher({ walletAddress, onPositions }: Props) 
 
     async function fetchPositions() {
       try {
-        const [naviRes, scallopRes, cetusRes, haedalRes] = await Promise.allSettled([
-          fetchWithTimeout(`/api/positions/navi?address=${walletAddress}`, 15000),
-          fetchWithTimeout(`/api/positions/scallop?address=${walletAddress}`, 15000),
-          fetchWithTimeout(`/api/positions/cetus?wallet=${walletAddress}`, 20000),
-          fetchWithTimeout(`/api/positions/haedal?wallet=${walletAddress}`, 15000),
-        ])
+       const [naviRes, scallopRes, cetusRes, haedalRes] = await Promise.allSettled([
+  fetchWithTimeout(`/api/positions/navi?address=${walletAddress}`, 30000),
+  fetchWithTimeout(`/api/positions/scallop?address=${walletAddress}`, 30000),
+  fetchWithTimeout(`/api/positions/cetus?wallet=${walletAddress}`, 40000),
+  fetchWithTimeout(`/api/positions/haedal?wallet=${walletAddress}`, 30000),
+])
 
         const positions: RealPosition[] = []
 

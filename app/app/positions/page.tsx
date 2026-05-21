@@ -45,6 +45,7 @@ interface Opportunity {
   fromApy: number
   toApy: number
   extra: number
+   valueUsd: number
 }
 
 function groupByProtocol(positions: RealPosition[]): Record<string, RealPosition[]> {
@@ -304,7 +305,9 @@ export default function PositionsPage() {
       .sort((a, b) => (b.apyBase + b.apyReward) - (a.apyBase + a.apyReward))[0]
     if (!bestOther) continue
     const extra = (bestOther.apyBase + bestOther.apyReward) - pos.apy
-    if (extra < 0.5) continue
+    // Only show if meaningful — at least 0.5% absolute AND 10% relative improvement
+const relativeGain = (extra / pos.apy) * 100
+if (extra < 0.5 || relativeGain < 10) continue
     opportunities.push({
       asset: pos.asset,
       fromProtocol: pos.protocol,
@@ -312,6 +315,7 @@ export default function PositionsPage() {
       fromApy: pos.apy,
       toApy: bestOther.apyBase + bestOther.apyReward,
       extra,
+      valueUsd: pos.valueUsd,
     })
   }
 
@@ -434,20 +438,26 @@ export default function PositionsPage() {
                     </div>
                   ) : (
                     opportunities.slice(0, 3).map((o, i) => (
-                      <div key={i} style={{ background: "var(--bg-elevated)", borderRadius: 10, padding: 12, marginBottom: 8 }}>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>{o.asset} · {o.fromProtocol} → {o.toProtocol}</div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                            {o.fromApy.toFixed(2)}% → <span style={{ color: "var(--green)", fontWeight: 600 }}>{o.toApy.toFixed(2)}%</span>
-                          </div>
-                          <span style={{ fontSize: 11, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 6, padding: "2px 6px", fontWeight: 600 }}>+{o.extra.toFixed(2)}%</span>
-                        </div>
-                        <button
-                          onClick={() => { const pos = positions.find(p => p.asset === o.asset); if (pos) setMoveFundsTarget(pos) }}
-                          style={{ width: "100%", padding: "7px", borderRadius: 8, background: "var(--green)", color: "#000", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                          Move Funds <ArrowRight size={12} />
-                        </button>
-                      </div>
+                    <div style={{ background: "var(--bg-elevated)", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
+    {o.asset} · {o.fromProtocol} → {o.toProtocol}
+  </div>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+    <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+      {o.fromApy.toFixed(2)}% → <span style={{ color: "var(--green)", fontWeight: 700 }}>{o.toApy.toFixed(2)}%</span>
+    </div>
+    <span style={{ fontSize: 11, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 6, padding: "2px 8px", fontWeight: 600, flexShrink: 0 }}>
+      {Math.round((o.extra / o.fromApy) * 100)}% more yield
+    </span>
+  </div>
+  <div style={{ fontSize: 12, color: "#F5A623", fontWeight: 600, marginBottom: 10 }}>
+    +${((o.valueUsd * o.extra) / 100).toFixed(2)}/year left on the table
+  </div>
+  <a href={`https://app.scallop.io`} target="_blank" rel="noopener noreferrer"
+    style={{ display: "block", textAlign: "center", background: "var(--green)", color: "#000", borderRadius: 8, padding: "8px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+    Move Funds →
+  </a>
+</div>
                     ))
                   )}
                 </div>

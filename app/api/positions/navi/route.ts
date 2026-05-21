@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+export const maxDuration = 30
 
 const NAVI_META = {
   color: "#1A4FE0",
