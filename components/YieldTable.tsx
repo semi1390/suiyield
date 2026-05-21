@@ -188,7 +188,7 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
             ))}
           </div>
 
-          <div style={{ display: "flex", gap: 6, padding: "8px 12px", overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: 6, padding: "8px 12px", overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
             <Dropdown value={assetFilter} options={allAssets} onChange={setAssetFilter} />
             <Dropdown value={riskFilter} options={RISK_FILTERS} onChange={setRiskFilter} />
             <Dropdown value={sortBy} options={["APY High to Low", "APY Low to High"]} onChange={setSortBy} prefix="Sort: " />
@@ -212,7 +212,7 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
         </div>
 
         {/* Column headers */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 80px 90px", padding: "6px 12px", gap: 4, borderBottom: "1px solid var(--border)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 50px 70px 80px", padding: "6px 12px", gap: 4, borderBottom: "1px solid var(--border)" }}>
           {["PROTOCOL", "ASSET", "APY ↑", "ACTION"].map(h => (
             <div key={h} style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }}>{h}</div>
           ))}
@@ -223,7 +223,7 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
           const native = isNativeDeposit(y)
           return (
             <div key={y.id}
-              style={{ display: "grid", gridTemplateColumns: "1fr 60px 80px 90px", padding: "10px 12px", gap: 4, alignItems: "center", borderTop: "1px solid var(--border)", transition: "background 0.15s" }}
+              style={{ display: "grid", gridTemplateColumns: "1fr 50px 70px 80px", padding: "10px 12px", gap: 4, alignItems: "center", borderTop: "1px solid var(--border)", transition: "background 0.15s" }}
               onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-elevated)")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
@@ -232,7 +232,7 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
                 <ProtocolAvatar y={y} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{y.protocol}</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 90 }}>{y.protocol}</span>
                     {i === 0 && (
                       <span style={{ fontSize: 9, background: "var(--green-bg)", color: "var(--green)", border: "1px solid var(--green-border)", borderRadius: 3, padding: "1px 4px", fontWeight: 600, flexShrink: 0 }}>Best</span>
                     )}
@@ -269,12 +269,13 @@ export default function YieldTable({ lending, dex, staking, cex, lastUpdated }: 
                 {native ? (
                   <button
                     onClick={() => setDepositPool(y)}
-                    style={{ fontSize: 11, fontWeight: 600, color: "#000", background: "var(--green)", borderRadius: 7, padding: "5px 10px", border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-                    Deposit
+                    style={{ fontSize: 11, fontWeight: 600, color: "#000", background: "var(--green)", borderRadius: 7,padding: "5px 8px", border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+  Deposit
+
                   </button>
                 ) : (
                   <a href={y.depositUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 7, padding: "5px 8px", textDecoration: "none", display: "inline-block", whiteSpace: "nowrap" }}>
+                    style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 7, padding: "5px 6px", textDecoration: "none", display: "inline-block", whiteSpace: "nowrap" }}>
                     Open ↗
                   </a>
                 )}

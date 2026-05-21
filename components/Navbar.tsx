@@ -2,94 +2,168 @@
 import { ConnectButton } from "@mysten/dapp-kit"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Sun, Menu, X } from "lucide-react"
-import { useState } from "react"
+import { Sun, Moon, Menu, X } from "lucide-react"
+import { useState, useEffect } from "react"
 
 const links = [
-  { href: "/app", label: "Dashboard" },
-  { href: "/app/explore", label: "Explore" },
-  { href: "/app/positions", label: "My Positions" },
-  { href: "/app/alerts", label: "Alerts" },
-  { href: "/app/portfolio", label: "Portfolio" },
-  { href: "/app/swap", label: "Swap" },
+  { href: "/app",            label: "Dashboard" },
+  { href: "/app/explore",    label: "Explore" },
+  { href: "/app/positions",  label: "My Positions" },
+  { href: "/app/alerts",     label: "Alerts" },
+  { href: "/app/portfolio",  label: "Portfolio" },
+  { href: "/app/swap",       label: "Swap" },
 ]
 
 export default function Navbar({ lastUpdated }: { lastUpdated?: number }) {
   const path = usePathname()
   const secs = lastUpdated ? Math.floor((Date.now() - lastUpdated) / 1000) : null
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  // Close menu on route change
+  useEffect(() => { setMenuOpen(false) }, [path])
+  // Close menu on scroll
+useEffect(() => {
+  if (!menuOpen) return
+  const handleScroll = () => setMenuOpen(false)
+  window.addEventListener("scroll", handleScroll, { passive: true })
+  return () => window.removeEventListener("scroll", handleScroll)
+}, [menuOpen])
+
+// Close menu on click outside
+useEffect(() => {
+  if (!menuOpen) return
+  const handleClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (!target.closest("nav") && !target.closest("[data-mobile-menu]")) {
+      setMenuOpen(false)
+    }
+  }
+  document.addEventListener("click", handleClick)
+  return () => document.removeEventListener("click", handleClick)
+}, [menuOpen])
 
   return (
     <>
-      <nav style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border)" }} className="sticky top-0 z-50">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 h-14 flex items-center justify-between">
+      <nav style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 16px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--green-bg)", border: "1px solid var(--green-border)" }}>
-              <span style={{ color: "var(--green)", fontSize: 14, fontWeight: 600 }}>S</span>
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--green-bg)", border: "1px solid var(--green-border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "var(--green)", fontSize: 14, fontWeight: 700 }}>S</span>
             </div>
             <span style={{ color: "var(--text-primary)", fontSize: 15, fontWeight: 600 }}>SuiYield</span>
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center">
-            {links.map(l => (
-              <Link key={l.href} href={l.href}
-                className="relative px-3 py-4 text-[13px] transition-colors"
-                style={{ color: path === l.href ? "var(--text-primary)" : "var(--text-secondary)" }}>
-                {l.label}
-                {path === l.href && (
-                  <div className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full" style={{ background: "var(--green)" }} />
-                )}
-              </Link>
-            ))}
-          </div>
+          {/* Desktop nav links */}
+          {!isMobile && (
+            <div style={{ display: "flex", alignItems: "center" }}>
+              {links.map(l => (
+                <Link key={l.href} href={l.href}
+                  style={{ position: "relative", padding: "16px 12px", fontSize: 13, textDecoration: "none", color: path === l.href ? "var(--text-primary)" : "var(--text-secondary)", transition: "color 0.15s" }}>
+                  {l.label}
+                  {path === l.href && (
+                    <div style={{ position: "absolute", bottom: 0, left: 12, right: 12, height: 2, borderRadius: 2, background: "var(--green)" }} />
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Right side */}
-          <div className="flex items-center gap-2 md:gap-3">
-            {/* Data updated — desktop only */}
-            {secs !== null && (
-              <div className="hidden md:flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--green)" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}>
+            {/* Live indicator — desktop */}
+            {!isMobile && secs !== null && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)" }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)", animation: "pulse 2s infinite" }} />
                 Data updated {secs}s ago
               </div>
             )}
-            <button className="hidden md:flex p-2 rounded-lg" style={{ color: "var(--text-secondary)" }}>
-              <Sun size={15} />
-            </button>
-            <div style={{ maxWidth: 160 }}><ConnectButton /></div>
+
+            {/* Wallet connect */}
+    <div style={{ 
+  flexShrink: 0,
+  zoom: isMobile ? 0.75 : 1,
+}}>
+  <ConnectButton />
+</div>
             {/* Hamburger — mobile only */}
-            <button
-              className="md:hidden p-2 rounded-lg"
-              style={{ color: "var(--text-secondary)" }}
-              onClick={() => setMenuOpen(o => !o)}
-            >
-              {menuOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
+            {isMobile && (
+              <button
+                onClick={() => setMenuOpen(o => !o)}
+                style={{ padding: 8, borderRadius: 8, background: menuOpen ? "var(--bg-elevated)" : "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {menuOpen ? <X size={18} /> : <Menu size={18} />}
+              </button>
+            )}
           </div>
         </div>
       </nav>
 
-      {/* Mobile menu dropdown */}
-      {menuOpen && (
-        <div className="md:hidden fixed top-14 left-0 right-0 z-40 border-b"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-          {links.map(l => (
+      {/* Mobile menu */}
+     {menuOpen && isMobile && (
+  <>
+    <div
+      onClick={() => setMenuOpen(false)}
+      style={{ position: "fixed", inset: 0, top: 56, zIndex: 48, background: "rgba(0,0,0,0.4)" }}
+    />
+    <div data-mobile-menu style={{ position: "fixed", top: 56, left: 0, right: 0, zIndex: 49, background: "var(--bg-card)", borderBottom: "1px solid var(--border)", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+          {links.map((l, i) => (
             <Link key={l.href} href={l.href}
               onClick={() => setMenuOpen(false)}
-              className="flex items-center px-5 py-4 text-[14px] border-b"
               style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "14px 20px",
+                borderTop: i > 0 ? "1px solid var(--border)" : "none",
+                fontSize: 14, fontWeight: path === l.href ? 600 : 400,
                 color: path === l.href ? "var(--green)" : "var(--text-secondary)",
-                borderColor: "var(--border)",
-                background: path === l.href ? "var(--green-bg)" : "transparent"
+                background: path === l.href ? "var(--green-bg)" : "transparent",
+                textDecoration: "none",
               }}>
               {l.label}
-              {path === l.href && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: "var(--green)" }} />}
+              {path === l.href && (
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)" }} />
+              )}
             </Link>
           ))}
+
+          {/* Live indicator in mobile menu */}
+          {secs !== null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 20px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text-muted)" }}>
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--green)", animation: "pulse 2s infinite" }} />
+              Data updated {secs}s ago
+            </div>
+          )}
         </div>
+        </>
       )}
+
+     <style suppressHydrationWarning>{`
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @media (max-width: 768px) {
+    .wkit-connected-button,
+    .wkit-button,
+    [class*="ConnectButton"],
+    [class*="connect-button"] {
+      font-size: 11px !important;
+      padding: 6px 10px !important;
+      height: 32px !important;
+      min-width: unset !important;
+      max-width: 110px !important;
+      background: var(--bg-elevated) !important;
+      border: 1px solid var(--border) !important;
+      color: var(--text-primary) !important;
+      border-radius: 8px !important;
+    }
+  }
+`}</style>
     </>
   )
 }

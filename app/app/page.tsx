@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px" }}>
 
-        {/* Hero — stacks on mobile */}
+        {/* Hero */}
         <div className="dashboard-hero" style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 20, marginBottom: 20 }}>
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--green-bg)", border: "1px solid var(--green-border)", borderRadius: 20, padding: "4px 12px", marginBottom: 20 }}>
@@ -131,24 +131,23 @@ export default function DashboardPage() {
             </a>
           </div>
 
-         <div style={{ minWidth: 0, overflow: "hidden" }}>
-  <AiAdvisor
-    positions={positions}
-    walletTokens={walletTokens}
-    connected={!!account}
-    positionsLoading={positionsLoading}
-  />
-</div>
+          <div style={{ minWidth: 0, overflow: "hidden" }}>
+            <AiAdvisor
+              positions={positions}
+              walletTokens={walletTokens}
+              connected={!!account}
+              positionsLoading={positionsLoading}
+            />
+          </div>
         </div>
 
-        {/* Main grid — stacks on mobile */}
+        {/* Main grid */}
         <div id="table" className="dashboard-main" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
             <YieldTable lending={lending} dex={dex} staking={staking} cex={cex} lastUpdated={lastUpdated} />
-            <div className="features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
+           <div className="features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 16 }}>
               {FEATURES.map((f, i) => (
-                <div key={i} style={{ padding: "20px 18px", borderRight: i < 3 ? "1px solid var(--border)" : "none" }}
-                className={i < 2 ? "features-grid-item-top" : ""}>
+                <div key={i} className={i < 2 ? "features-grid-item-top" : ""} style={{ padding: "20px 18px", borderRight: i < 3 ? "1px solid var(--border)" : "none" }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--green-bg)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
                     <f.icon size={15} style={{ color: "var(--green)" }} />
                   </div>
@@ -173,31 +172,19 @@ export default function DashboardPage() {
       </div>
 
       <style suppressHydrationWarning>{`
-        @media (max-width: 768px) {
-          .dashboard-hero {
-            grid-template-columns: 1fr !important;
-          }
-          .hero-title {
-            font-size: 32px !important;
-          }
-          .dashboard-main {
-            grid-template-columns: 1fr !important;
-          }
-          .dashboard-sidebar {
-            display: none !important;
-          }
-          .features-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-          }
-          .features-grid > div:nth-child(2) {
-            border-right: none !important;
-          }
-          .features-grid > div:nth-child(1),
-          .features-grid > div:nth-child(2) {
-            border-bottom: 1px solid var(--border);
-          }
-        }
-      `}</style>
+  @media (max-width: 768px) {
+    .dashboard-hero { grid-template-columns: 1fr !important; }
+    .hero-title { font-size: 32px !important; }
+    .dashboard-main { grid-template-columns: 1fr !important; }
+    .dashboard-sidebar { display: none !important; }
+    .features-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .features-grid-item-top { border-bottom: 1px solid var(--border) !important; }
+  }
+  @media (max-width: 390px) {
+    .features-grid { grid-template-columns: 1fr !important; }
+    .hero-title { font-size: 28px !important; }
+  }
+`}</style>
     </div>
   )
 }

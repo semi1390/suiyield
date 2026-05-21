@@ -2,9 +2,10 @@
 import { useEffect, useState } from "react"
 import Navbar from "@/components/Navbar"
 import type { YieldEntry } from "@/types"
-import { Search } from "lucide-react"
+import { Search, TrendingUp, Flame, Zap } from "lucide-react"
+import { SEED_STAKING } from "@/lib/seed-data"
 
-const ASSET_TABS = ["All", "USDC", "USDT", "SUI", "WBTC", "WETH", "DEEP"]
+const ASSET_TABS = ["All", "USDC", "USDT", "SUI", "WBTC", "WETH", "DEEP", "WAL"]
 const CATEGORY_TABS = ["All", "Lending", "DEX", "Staking"]
 
 function fmtTvl(n: number) {
@@ -18,11 +19,52 @@ function ProtocolAvatar({ y }: { y: YieldEntry }) {
   const [imgFailed, setImgFailed] = useState(false)
   return (
     <div style={{ width: 30, height: 30, borderRadius: "50%", background: y.color + "22", border: `1px solid ${y.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: y.color, flexShrink: 0, overflow: "hidden" }}>
-      {y.logo && !imgFailed ? (
-        <img src={y.logo} alt={y.protocol} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={() => setImgFailed(true)} />
-      ) : (
-        <span style={{ fontSize: 9, fontWeight: 700, color: y.color }}>{y.initials}</span>
-      )}
+      {y.logo && !imgFailed
+        ? <img src={y.logo} alt={y.protocol} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={() => setImgFailed(true)} />
+        : <span style={{ fontSize: 9, fontWeight: 700, color: y.color }}>{y.initials}</span>}
+    </div>
+  )
+}
+
+interface TrendCardProps {
+  label: string
+  icon: React.ReactNode
+  iconColor: string
+  pools: YieldEntry[]
+  badge?: string
+  badgeColor?: string
+}
+
+function TrendCard({ label, icon, iconColor, pools, badge, badgeColor }: TrendCardProps) {
+  return (
+    <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 16, flex: 1, minWidth: 220 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
+        <div style={{ width: 28, height: 28, borderRadius: 8, background: iconColor + "18", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {icon}
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{label}</span>
+        {badge && (
+          <span style={{ fontSize: 9, fontWeight: 600, background: badgeColor + "18", color: badgeColor, borderRadius: 4, padding: "1px 6px", marginLeft: "auto" }}>{badge}</span>
+        )}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {pools.map((y, i) => (
+          <a key={y.id} href={y.depositUrl} target="_blank" rel="noopener noreferrer"
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", textDecoration: "none", padding: "6px 8px", borderRadius: 8, background: "var(--bg-elevated)", transition: "opacity 0.15s" }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")}
+            onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", width: 14 }}>{i + 1}</span>
+              <ProtocolAvatar y={y} />
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>{y.asset}</div>
+                <div style={{ fontSize: 9, color: "var(--text-muted)" }}>{y.protocol}</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: iconColor }}>{y.apy.toFixed(2)}%</div>
+          </a>
+        ))}
+      </div>
     </div>
   )
 }
@@ -36,57 +78,105 @@ export default function ExplorePage() {
   const [lastUpdated, setLastUpdated] = useState(Date.now())
 
   useEffect(() => {
-    fetch("/api/yields").then(r => r.json()).then(d => {
-      setYields(d.yields || [])
-      setLastUpdated(Date.now())
-      setLoading(false)
-    }).catch(() => setLoading(false))
+   fetch("/api/yields").then(r => r.json()).then(d => {
+  const allYields = d.yields || []
+  
+  // DeFiLlama has no staking data for Sui — add seed staking
+  const hasStaking = allYields.some((y: any) => y.category === "staking")
+  const finalYields = hasStaking ? allYields : [
+    ...allYields,
+    ...(SEED_STAKING as any[])
+  ]
+  
+  setYields(finalYields)
+  setLastUpdated(Date.now())
+  setLoading(false)
+}).catch(() => setLoading(false))
   }, [])
 
   const filtered = yields
-    .filter(y => categoryTab === "All" || y.category === categoryTab.toLowerCase())
+    .filter(y => categoryTab === "All" || 
+  y.category === categoryTab.toLowerCase() ||
+  (categoryTab === "Staking" && (y.category === "lst" || y.category?.includes("stak")))
+)
     .filter(y => assetTab === "All" || y.asset.toUpperCase().includes(assetTab.toUpperCase()))
     .filter(y => search === "" ||
       y.protocol.toLowerCase().includes(search.toLowerCase()) ||
       y.asset.toLowerCase().includes(search.toLowerCase())
     )
 
-  const topByApy = [...yields].sort((a, b) => b.apy - a.apy).slice(0, 3)
+  // Trending sections
+  const topApy = [...yields].sort((a, b) => b.apy - a.apy).slice(0, 3)
+const STABLECOINS = new Set([
+  "USDC","USDT","SUIUSDC","SUIUSDT","WUSDC","WUSDT",
+  "BUCK","USDY","AUSD","MUSD","SUIUSD","FDUSD","DAI"
+])
+
+const topStable = [...yields]
+  .filter(y => {
+    const asset = y.asset.toUpperCase()
+    return !asset.includes("-") && !asset.includes("/") && STABLECOINS.has(asset)
+  })
+  .sort((a, b) => b.apy - a.apy).slice(0, 3)
+  const topTvl = [...yields].sort((a, b) => b.tvl - a.tvl).slice(0, 3)
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
       <Navbar lastUpdated={lastUpdated} />
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "20px 16px" }}>
 
+        {/* Header */}
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>Explore yields</h1>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{yields.length} live pools across Sui DeFi</p>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>{yields.length} live pools across Sui DeFi · Updated every 5 minutes</p>
         </div>
 
-        {/* Top picks */}
-        <div style={{ overflowX: "auto", marginBottom: 20 }}>
-          <div style={{ display: "flex", gap: 12, minWidth: "max-content", paddingBottom: 4 }}>
-            {topByApy.map(y => (
-              <div key={y.id} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 16, width: 200, flexShrink: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <ProtocolAvatar y={y} />
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>{y.protocol}</div>
-                    <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{y.asset} · {y.type}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: "var(--green)", marginBottom: 6 }}>{y.apy.toFixed(2)}%</div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>TVL: {fmtTvl(y.tvl)}</span>
-                  <a href={y.depositUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: 11, fontWeight: 600, color: "#000", background: "var(--green)", borderRadius: 6, padding: "4px 10px", textDecoration: "none" }}>
-                    Open ↗
-                  </a>
-                </div>
+        {/* Trending sections */}
+        {!loading && yields.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Trending now</div>
+            <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4, WebkitOverflowScrolling: "touch" as any }}>
+              <TrendCard
+                label="Highest APY"
+                icon={<Flame size={14} style={{ color: "#EF4444" }} />}
+                iconColor="#EF4444"
+                pools={topApy}
+                badge="🔥 Hot"
+                badgeColor="#EF4444"
+              />
+              <TrendCard
+                label="Best Stablecoins"
+                icon={<Zap size={14} style={{ color: "#4B8BFF" }} />}
+                iconColor="#4B8BFF"
+                pools={topStable}
+                badge="Low risk"
+                badgeColor="#4B8BFF"
+              />
+              <TrendCard
+                label="Most Trusted"
+                icon={<TrendingUp size={14} style={{ color: "#00D4AA" }} />}
+                iconColor="#00D4AA"
+                pools={topTvl}
+                badge="High TVL"
+                badgeColor="#00D4AA"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Loading skeleton for trending */}
+        {loading && (
+          <div style={{ display: "flex", gap: 12, marginBottom: 24, overflowX: "auto" }}>
+            {[1,2,3].map(i => (
+              <div key={i} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, padding: 16, flex: 1, minWidth: 220, minHeight: 160 }}>
+                <div style={{ height: 14, background: "var(--bg-elevated)", borderRadius: 4, marginBottom: 14, width: "60%" }} />
+                {[1,2,3].map(j => (
+                  <div key={j} style={{ height: 40, background: "var(--bg-elevated)", borderRadius: 8, marginBottom: 8 }} />
+                ))}
               </div>
             ))}
           </div>
-        </div>
+        )}
 
         {/* Search */}
         <div style={{ position: "relative", marginBottom: 12 }}>
@@ -98,7 +188,7 @@ export default function ExplorePage() {
           />
         </div>
 
-        {/* Category + Asset filters */}
+        {/* Filters */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
           <div style={{ overflowX: "auto" }}>
             <div style={{ display: "flex", gap: 6, minWidth: "max-content", paddingBottom: 2 }}>
@@ -131,6 +221,9 @@ export default function ExplorePage() {
         {/* Result count */}
         <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
           {filtered.length} pool{filtered.length !== 1 ? "s" : ""}
+          {search && ` matching "${search}"`}
+          {categoryTab !== "All" && ` in ${categoryTab}`}
+          {assetTab !== "All" && ` for ${assetTab}`}
         </div>
 
         {/* Table */}
@@ -180,12 +273,14 @@ export default function ExplorePage() {
           ))}
 
           {!loading && filtered.length === 0 && (
-            <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>No pools found</div>
+            <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+              No pools found — try a different filter
+            </div>
           )}
         </div>
 
         <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10, textAlign: "right" }}>
-          Live data from DeFiLlama · Updates every 5 minutes
+          Data from DeFiLlama · Updates every 5 minutes
         </div>
       </div>
     </div>

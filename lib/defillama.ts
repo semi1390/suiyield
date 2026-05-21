@@ -7,7 +7,7 @@ import type { YieldEntry } from "@/types"
 const LLAMA_URL = "https://yields.llama.fi/pools"
 
 const PROTOCOL_META: Record<string, { name: string; color: string; initials: string; logo: string }> = {
-  "navi-lending":      { name: "Navi Protocol",   color: "#1A4FE0", initials: "N",  logo: "https://icons.llama.fi/navi-lending.png" },
+  "navi-lending":      { name: "Navi Protocol",   color: "#1A4FE0", initials: "N",  logo: "https://cdn.brandfetch.io/idD0jgT0gJ/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1768404148379"},
   "scallop-lend":      { name: "Scallop",         color: "#8B5CF6", initials: "Sc", logo: "https://icons.llama.fi/scallop.png" },
   "suilend":           { name: "Suilend",         color: "#EC4899", initials: "Sl", logo: "https://icons.llama.fi/suilend.png" },
   "current":           { name: "Current",         color: "#0EA5E9", initials: "Cu", logo: "https://icons.llama.fi/current-finance.png" },
