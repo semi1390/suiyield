@@ -57,9 +57,7 @@ useEffect(() => {
 
           {/* Logo */}
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--green-bg)", border: "1px solid var(--green-border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "var(--green)", fontSize: 14, fontWeight: 700 }}>S</span>
-            </div>
+            <img src="/logo.png" alt="SuiYield" style={{ width: 30, height: 30, borderRadius: 8, objectFit: "cover" }} />
             <span style={{ color: "var(--text-primary)", fontSize: 15, fontWeight: 600 }}>SuiYield</span>
           </Link>
 

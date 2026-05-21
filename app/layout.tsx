@@ -17,7 +17,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <title>SuiYield — Best DeFi Yields on Sui</title>
         <meta name="description" content="Find the best yield rates across every Sui DeFi protocol. One screen, one click." />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <meta name="theme-color" content="#0A0E1A" />
+       <meta property="og:title" content="SuiYield — Best DeFi Yields on Sui" />
+<meta property="og:description" content="Find the best yield rates across every Sui DeFi protocol. AI-powered portfolio analysis. Real-time position tracking." />
+<meta property="og:url" content="https://suiyield-umzj.vercel.app" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="SuiYield — Best DeFi Yields on Sui" />
+<meta name="twitter:description" content="Find the best yield rates across every Sui DeFi protocol." />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />

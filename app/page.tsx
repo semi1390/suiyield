@@ -115,7 +115,7 @@ export default function LandingPage() {
       {/* Navbar */}
       <nav style={{ borderBottom: "1px solid var(--border)", padding: "0 20px", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, background: "rgba(10,14,26,0.95)", backdropFilter: "blur(12px)", zIndex: 50 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(0,212,170,0.12)", border: "1px solid rgba(0,212,170,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#00D4AA" }}>S</div>
+          <img src="/logo.png" alt="SuiYield" style={{ width: 30, height: 30, borderRadius: 8, objectFit: "cover" }} />
           <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>SuiYield</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
