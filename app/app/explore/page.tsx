@@ -95,9 +95,9 @@ export default function ExplorePage() {
   }, [])
 
   const filtered = yields
-    .filter(y => categoryTab === "All" || 
+ .filter(y => categoryTab === "All" ||
   y.category === categoryTab.toLowerCase() ||
-  (categoryTab === "Staking" && (y.category === "lst" || y.category?.includes("stak")))
+  (categoryTab === "Staking" && ((y.category as string) === "lst" || (y.category as string)?.includes("stak")))
 )
     .filter(y => assetTab === "All" || y.asset.toUpperCase().includes(assetTab.toUpperCase()))
     .filter(y => search === "" ||
