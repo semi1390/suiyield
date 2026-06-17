@@ -20,19 +20,21 @@ const SPECS = [
   { label: "Live protocols",    value: "Navi · Scallop (SDK)" },
   { label: "Position readers",  value: "Navi · Scallop · Cetus · Haedal" },
   { label: "Update frequency",  value: "Every 5 minutes" },
-  { label: "AI model",          value: "Claude (Anthropic)" },
+ { label: "AI advisor", value: "Powered by AI" },
   { label: "Alerts",            value: "Telegram Bot" },
   { label: "Swap",              value: "Cetus 7k Aggregator" },
-  { label: "Custody",           value: "Non-custodial · Read-only" },
+ { label: "Custody", value: "Non-custodial · Direct to protocol" },
   { label: "Pools tracked",     value: "113+" },
 ]
 
 const FAQS = [
-  { q: "Does SuiYield hold my funds?", a: "Never. SuiYield is read-only. We connect to your wallet to read your positions but never request transaction approvals or touch your funds." },
+  { q: "Does SuiYield hold my funds?", a: "No. When you deposit through SuiYield, your transaction goes directly to the protocol — Navi, Scallop, or Cetus. We never hold your funds at any point. The deposit button opens a transaction you sign with your own wallet." },
+  { q: "Does SuiYield take a fee?", a: "No. SuiYield charges zero fees. You deposit directly into the protocol at the same rate you'd get going there yourself. We make no cut of your yield." },
   { q: "How is the yield data sourced?", a: "Navi and Scallop rates come directly from their protocol SDKs in real time. All other protocols are sourced from DeFiLlama and updated every 5 minutes." },
-  { q: "How does the AI advisor work?", a: "The AI advisor is powered by Claude. It reads your on-chain positions, compares them against every live rate across Sui, and gives you specific, actionable insights — not generic advice." },
+  { q: "How does the AI advisor work?", a: "The AI advisor reads your on-chain positions, compares them against every live rate across Sui, and gives you specific actionable insights — not generic advice. It knows your wallet, your APYs, and where you could be earning more." },
   { q: "What chains does SuiYield support?", a: "Sui mainnet only. SuiYield is built specifically for the Sui ecosystem and its DeFi protocols." },
   { q: "How do Telegram alerts work?", a: "Set a threshold for any asset and protocol. Our system checks rates regularly and sends you a Telegram message the moment a pool crosses your target APY." },
+  { q: "Which protocols can I deposit into?", a: "Currently Navi Protocol and Scallop via native one-click deposit. All other protocols open directly on their own site with the right asset pre-selected." },
   { q: "Is SuiYield open source?", a: "Yes. The full codebase is available on GitHub at github.com/semi1390/suiyield." },
 ]
 
@@ -282,7 +284,7 @@ export default function LandingPage() {
           {[
             { num: "01", icon: Wallet,     title: "Connect your wallet",   sub: "One click · Read-only · No approvals", desc: "One click. Read-only connection to your Sui wallet. We never request transaction approvals, never touch your funds, and never store your private keys.", tag: "Non-custodial" },
             { num: "02", icon: TrendingUp, title: "See every opportunity", sub: "113+ pools · 8 protocols · Live rates",  desc: "Every lending rate, DEX pool, and staking yield across Sui — ranked by APY, filterable by asset and risk level, updated every 5 minutes directly from the protocols.", tag: "113+ pools" },
-            { num: "03", icon: Brain,      title: "Let AI guide you",      sub: "Claude-powered · Your wallet · Live data", desc: "The AI Yield Advisor reads your exact on-chain positions, compares them to every live rate across the ecosystem, and tells you specifically where your capital should be right now.", tag: "Powered by Claude" },
+           { num: "03", icon: Brain, title: "Let AI guide you", sub: "AI-powered · Your wallet · Live data", desc: "The AI Yield Advisor reads your exact on-chain positions, compares them to every live rate across the ecosystem, and tells you specifically where your capital should be right now.", tag: "AI-powered advisor" },
             { num: "04", icon: Bell,       title: "Get alerted instantly", sub: "Telegram · Any asset · Any threshold",  desc: "Set a target APY for any asset or protocol. The moment a pool crosses your threshold, you get a Telegram message. Never miss a rate spike again.", tag: "Telegram alerts" },
           ].map((step, i) => (
             <FadeIn key={i} delay={i * 0.1}>
