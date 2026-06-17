@@ -192,7 +192,7 @@ export default function SwapPage() {
     <div style={{ minHeight: "100vh", background: "#0A0E1A" }}>
       <Navbar />
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 40, opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(20px)", transition: "all 0.6s ease" }}>
@@ -226,7 +226,7 @@ export default function SwapPage() {
           </div>
 
           {/* Center — swap card */}
-          <div style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(20px)", transition: "all 0.6s ease 0.2s" }}>
+         <div className="swap-center" style={{ opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(20px)", transition: "all 0.6s ease 0.2s" }}>
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, padding: 24, backdropFilter: "blur(20px)" }}>
 
               {/* Settings */}
@@ -415,14 +415,26 @@ export default function SwapPage() {
         </div>
       </div>
 
-      <style suppressHydrationWarning>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @media (max-width: 900px) {
-          .swap-grid { grid-template-columns: 1fr !important; }
-          .swap-left, .swap-right { display: none !important; }
-        }
-      `}</style>
+<style suppressHydrationWarning>{`
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @media (max-width: 900px) {
+    .swap-grid {
+      grid-template-columns: 1fr !important;
+    }
+    .swap-left {
+      display: none !important;
+    }
+    .swap-right {
+      display: none !important;
+    }
+    .swap-center {
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+    }
+  }
+`}</style>
     </div>
   )
 }
